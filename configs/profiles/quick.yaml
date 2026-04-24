@@ -1,0 +1,57 @@
+# Quick Profile - Fast reconnaissance (~5 minutes)
+# Only passive methods, no brute force, no vulns
+
+general:
+  max_workers: 8
+  deep: false
+
+osint:
+  enabled: true
+  github_repos: false
+  metadata: false
+  cloud_enum: false
+
+subdomain:
+  enabled: true
+  passive: true
+  crt: true
+  brute: false
+  permutations: false
+  ai_permutations: false
+  recursive_passive: false
+  recursive_brute: false
+  takeover: false
+  zone_transfer: false
+  s3_buckets: false
+  wildcard_filter: true
+  regex_permut: false
+  ptr_cidrs: false
+
+web:
+  enabled: true
+  probe: true
+  screenshots: false
+  nuclei: false
+  cdnprovider: false
+  fuzzing: false
+  js_analysis: false
+  crawl: false
+  cms_scan: false
+  graphql: false
+  urlext: false
+  service_fingerprint: false
+  param_discovery: false
+  port_scan: false
+  virtual_hosts: false
+  url_checks: false
+  url_gf: false
+  iis_shortname: false
+  tls_ip_pivots: false
+  favirecon_tech: false
+  broken_links: false
+  wordlist_gen: false
+  sub_js_extract: false
+  wellknown_pivots: false
+
+vuln:
+  enabled: false

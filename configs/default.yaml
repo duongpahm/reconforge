@@ -1,0 +1,139 @@
+# ReconForge Default Configuration
+# See: https://github.com/reconforge/reconforge
+
+general:
+  tools_dir: ~/Tools
+  output_dir: ./Recon
+  parallel: true
+  max_workers: 4
+  deep: false
+  verbose: false
+
+vm:
+  enabled: true
+  provider: virtualbox
+  name: kali-reconforge
+  memory: 4096
+  cpus: 2
+  disk_gb: 50
+  image: kali-rolling
+  ssh_port: 2222
+  shared_dir: /shared
+
+target:
+  scope_file: ""
+  out_of_scope_file: ""
+  exclude_sensitive: false
+
+osint:
+  enabled: true
+  google_dorks: true
+  github_dorks: true
+  github_repos: true
+  github_leaks: true
+  email_harvest: true
+  cloud_enum: true
+  metadata: true
+  spf_dmarc: true
+
+subdomain:
+  enabled: true
+  passive: true
+  crt: true
+  brute: true
+  permutations: true
+  ai_permutations: true
+  recursive_passive: false
+  recursive_brute: false
+  takeover: true
+  zone_transfer: true
+  s3_buckets: true
+  wildcard_filter: true
+  regex_permut: true
+  ptr_cidrs: true
+
+web:
+  enabled: true
+  probe: true
+  screenshots: true
+  ports:
+    standard: "80,443"
+    uncommon: "8080,8443,8000,9090"
+  nuclei: true
+  cdnprovider: true
+  fuzzing: true
+  js_analysis: true
+  crawl: true
+  cms_scan: true
+  waf_detect: true
+  graphql: true
+  urlext: true
+  service_fingerprint: true
+  param_discovery: true
+  port_scan: true
+  virtual_hosts: true
+  url_checks: true
+  url_gf: true
+  iis_shortname: true
+  tls_ip_pivots: true
+  favirecon_tech: true
+  broken_links: true
+  wordlist_gen: true
+  sub_js_extract: true
+  wellknown_pivots: true
+
+vuln:
+  enabled: false
+  xss: true
+  ssrf: true
+  sqli: true
+  ssti: true
+  lfi: true
+  ssl: true
+  smuggling: true
+  spray: true
+  command_injection: true
+  nuclei_dast: true
+
+dns:
+  resolver: auto
+  generate_resolvers: false
+  resolvers_url: "https://raw.githubusercontent.com/trickest/resolvers/main/resolvers.txt"
+  trusted_resolvers_url: "https://gist.githubusercontent.com/six2dez/ae9ed7e5c786461868abd3f2344401b6/raw/trusted_resolvers.txt"
+
+ratelimit:
+  adaptive: false
+  min_rate: 10
+  max_rate: 500
+  httpx: 150
+  nuclei: 150
+  ffuf: 0
+
+cache:
+  max_age_days: 30
+  resolvers_ttl_days: 7
+  wordlists_ttl_days: 30
+
+monitoring:
+  enabled: false
+  interval_minutes: 60
+  max_cycles: 0
+  min_severity: high
+
+incremental:
+  enabled: false
+  diff_only: true
+
+export:
+  format: all
+  notify:
+    enabled: false
+    slack_webhook: ""
+    discord_webhook: ""
+    telegram_token: ""
+    telegram_chat_id: ""
+
+ai:
+  enabled: false
+  model: "llama3:8b"
+  report_profile: bughunter
