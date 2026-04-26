@@ -49,14 +49,12 @@ func TestScanCommandHasSkipMissingToolsFlag(t *testing.T) {
 	assert.Equal(t, "false", flag.DefValue)
 }
 
-func TestValidateTargets(t *testing.T) {
-	assert.NoError(t, validateTargets([]string{"valid.example.com", "1.1.1.1", "10.0.0.0/24"}))
-	assert.Error(t, validateTargets([]string{"999.999.999.999"}))
-	assert.Error(t, validateTargets([]string{"no-tld"}))
-	assert.Error(t, validateTargets([]string{"exam ple.com"}))
-	assert.Error(t, validateTargets([]string{"10.0.0.0/99"}))
-}
+// TestValidateTargets moved to validate_targets_test.go with expanded cases
+// including wildcard domains. See cmd/reconforge/validate_targets_test.go.
 
 func TestExitCodeInterrupted(t *testing.T) {
+	// Verify Interrupt() wrapper returns exit 130 (SIGINT semantics).
+	assert.Equal(t, exitcode.Interrupted, exitcode.Code(exitcode.Interrupt(context.Canceled)))
+	// Legacy: bare Scan(canceled) still returns ScanFailed (2).
 	assert.Equal(t, exitcode.ScanFailed, exitcode.Code(exitcode.Scan(context.Canceled)))
 }

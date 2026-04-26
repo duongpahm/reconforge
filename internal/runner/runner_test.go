@@ -39,7 +39,7 @@ func TestLocalRunner_Run_NonexistentTool(t *testing.T) {
 	var missing *MissingToolError
 	assert.True(t, errors.As(err, &missing))
 	assert.Equal(t, "nonexistent_tool_xyz", missing.Tool)
-	assert.Contains(t, err.Error(), "Fix:  reconforge tools install nonexistent_tool_xyz")
+	assert.Contains(t, err.Error(), "Fix: reconforge tools install nonexistent_tool_xyz")
 }
 
 func TestLocalRunner_Run_NonZeroExit(t *testing.T) {
