@@ -1,13 +1,81 @@
 package web
 
 import (
+	"context"
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/reconforge/reconforge/internal/config"
 	"github.com/reconforge/reconforge/internal/engine"
 	"github.com/reconforge/reconforge/internal/module"
+	"github.com/reconforge/reconforge/internal/runner"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+type testRunner struct {
+	t     *testing.T
+	runFn func(command string, args []string) (*runner.RunResult, error)
+}
+
+func (r *testRunner) Run(_ context.Context, command string, args []string, _ runner.RunOpts) (*runner.RunResult, error) {
+	r.t.Helper()
+	if r.runFn == nil {
+		return &runner.RunResult{ExitCode: 0}, nil
+	}
+	return r.runFn(command, args)
+}
+
+func (r *testRunner) RunPipe(context.Context, []runner.PipeCmd) (*runner.RunResult, error) {
+	r.t.Helper()
+	return &runner.RunResult{ExitCode: 0}, nil
+}
+
+func (r *testRunner) IsInstalled(string) bool { return true }
+
+func newTestScanContext(t *testing.T, r runner.ToolRunner) *module.ScanContext {
+	t.Helper()
+	return &module.ScanContext{
+		Target: "example.com",
+		Config: &config.Config{
+			General: config.GeneralConfig{Deep: true},
+			Web: config.WebConfig{
+				Probe:              true,
+				Screenshots:        true,
+				Crawl:              true,
+				JSAnalysis:         true,
+				WAFDetect:          true,
+				Nuclei:             true,
+				CDNProvider:        true,
+				URLExt:             true,
+				ServiceFingerprint: true,
+				GraphQL:            true,
+				PortScan:           true,
+				URLChecks:          true,
+				ParamDiscovery:     true,
+				BrokenLinks:        true,
+				WordlistGen:        true,
+				SubJSExtract:       true,
+				WellKnownPivots:    true,
+				GrpcReflection:     true,
+				WebsocketChecks:    true,
+				RobotsWordlist:     true,
+				PasswordDict:       true,
+				LLMProbe:           true,
+				Ports: config.PortsConf{
+					Standard: "80,443",
+					Uncommon: "8080,8443",
+				},
+			},
+		},
+		Runner:    r,
+		Logger:    zerolog.Nop(),
+		OutputDir: t.TempDir(),
+		Results:   module.NewScanResults(),
+	}
+}
 
 func TestRegisterAll(t *testing.T) {
 	r := module.NewRegistry()
@@ -159,4 +227,98 @@ func TestWebModules_RequiredTools(t *testing.T) {
 	assert.Contains(t, tools, "curl")
 	assert.Contains(t, tools, "roboxtractor")
 	assert.Contains(t, tools, "julius")
+}
+
+func TestHTTPXProbe_Run_UsesTargetFallbackAndAddsLiveHosts(t *testing.T) {
+	var capturedInput []byte
+	scan := newTestScanContext(t, &testRunner{
+		t: t,
+		runFn: func(command string, args []string) (*runner.RunResult, error) {
+			assert.Equal(t, "httpx", command)
+			inputFile := args[1]
+			outFile := args[3]
+			var err error
+			capturedInput, err = os.ReadFile(inputFile)
+			require.NoError(t, err)
+			require.NoError(t, os.WriteFile(outFile, []byte("https://example.com\nhttps://app.example.com\n"), 0o644))
+			return &runner.RunResult{}, nil
+		},
+	})
+
+	err := (&HTTPXProbe{}).Run(context.Background(), scan)
+	require.NoError(t, err)
+
+	assert.Equal(t, "example.com\n", string(capturedInput))
+	assert.ElementsMatch(t, []string{"https://example.com", "https://app.example.com"}, scan.Results.GetLiveHosts())
+}
+
+func TestJSAnalyzer_Run_AddsEndpointsAndSecretFindings(t *testing.T) {
+	scan := newTestScanContext(t, &testRunner{
+		t: t,
+		runFn: func(command string, args []string) (*runner.RunResult, error) {
+			assert.Equal(t, "katana", command)
+			outFile := args[3]
+			require.NoError(t, os.WriteFile(outFile, []byte("https://cdn.example.com/api/users\n"), 0o644))
+			return &runner.RunResult{}, nil
+		},
+	})
+	scan.Results.AddURLs([]string{
+		"https://cdn.example.com/app.js?token=debug",
+		"https://cdn.example.com/logo.png",
+	})
+
+	err := (&JSAnalyzer{}).Run(context.Background(), scan)
+	require.NoError(t, err)
+
+	assert.Contains(t, scan.Results.GetURLs(), "https://cdn.example.com/api/users")
+	findings := scan.Results.GetFindings()
+	require.Len(t, findings, 1)
+	assert.Contains(t, findings[0].Detail, "Potential secret exposure")
+}
+
+func TestWAFDetector_Run_AddsFindingsFromOutputFile(t *testing.T) {
+	scan := newTestScanContext(t, &testRunner{
+		t: t,
+		runFn: func(command string, args []string) (*runner.RunResult, error) {
+			assert.Equal(t, "wafw00f", command)
+			outFile := args[3]
+			require.NoError(t, os.WriteFile(outFile, []byte("Cloudflare\n"), 0o644))
+			return &runner.RunResult{}, nil
+		},
+	})
+	scan.Results.AddLiveHosts([]string{"https://example.com"})
+
+	err := (&WAFDetector{}).Run(context.Background(), scan)
+	require.NoError(t, err)
+
+	findings := scan.Results.GetFindings()
+	require.Len(t, findings, 1)
+	assert.Contains(t, findings[0].Detail, "WAF detected: Cloudflare")
+}
+
+func TestParamDiscovery_Run_SamplesAtMost100URLs(t *testing.T) {
+	var capturedInput []byte
+	scan := newTestScanContext(t, &testRunner{
+		t: t,
+		runFn: func(command string, args []string) (*runner.RunResult, error) {
+			assert.Equal(t, "arjun", command)
+			inputFile := args[1]
+			var err error
+			capturedInput, err = os.ReadFile(inputFile)
+			require.NoError(t, err)
+			return &runner.RunResult{}, nil
+		},
+	})
+
+	urls := make([]string, 0, 150)
+	for i := range 150 {
+		urls = append(urls, fmt.Sprintf("https://example.com/path/%03d", i))
+	}
+	scan.Results.AddURLs(urls)
+
+	err := (&ParamDiscovery{}).Run(context.Background(), scan)
+	require.NoError(t, err)
+
+	lines := parseLines(capturedInput)
+	assert.Len(t, lines, 100)
 }

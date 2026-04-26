@@ -7,11 +7,14 @@ CMD       = ./cmd/reconforge
 BUILD_DIR = bin
 VERSION   = $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_AT  = $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+GO       ?= go
+GOENV    ?= GOTOOLCHAIN=local
+GOCMD     = $(GOENV) $(GO)
 LDFLAGS   = -s -w \
             -X '$(PKG)/internal/config.Version=$(VERSION)' \
             -X '$(PKG)/internal/config.BuildTime=$(BUILD_AT)'
 
-.PHONY: all build test vet lint clean install help
+.PHONY: all build test vet lint clean install help manpages
 
 ## Default: build + test + vet
 all: vet test build
@@ -20,50 +23,57 @@ all: vet test build
 build:
 	@echo "[*] Building $(BINARY) $(VERSION)..."
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY) $(CMD)
+	CGO_ENABLED=0 $(GOCMD) build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY) $(CMD)
 	@echo "[+] $(BUILD_DIR)/$(BINARY)"
 
 ## Run all tests with coverage
 test:
 	@echo "🧪 Running tests..."
-	CGO_ENABLED=0 go test -count=1 -cover -race ./...
+	CGO_ENABLED=0 $(GOCMD) test -count=1 -cover -race ./...
 
 ## Run go vet
 vet:
 	@echo "[*] Running go vet..."
-	go vet ./...
+	$(GOCMD) vet ./...
 
 ## Run tests in verbose mode
 test-v:
 	@echo "[*] Running tests (verbose)..."
-	CGO_ENABLED=0 go test -count=1 -v -cover ./...
+	CGO_ENABLED=0 $(GOCMD) test -count=1 -v -cover ./...
 
 ## Run tests with coverage report
 coverage:
 	@echo "[*] Generating coverage report..."
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 go test -coverprofile=$(BUILD_DIR)/coverage.out ./...
-	go tool cover -html=$(BUILD_DIR)/coverage.out -o $(BUILD_DIR)/coverage.html
+	CGO_ENABLED=0 $(GOCMD) test -coverprofile=$(BUILD_DIR)/coverage.out ./...
+	$(GOCMD) tool cover -html=$(BUILD_DIR)/coverage.out -o $(BUILD_DIR)/coverage.html
 	@echo "[+] Coverage report: $(BUILD_DIR)/coverage.html"
+
+## Generate man pages
+manpages: build
+	@echo "[*] Generating man pages..."
+	@mkdir -p dist/man
+	./$(BUILD_DIR)/$(BINARY) gen-manpages --out dist/man
+	@echo "[+] Man pages generated in dist/man"
 
 ## Install binary to GOPATH/bin
 install:
 	@echo "[*] Installing $(BINARY)..."
-	CGO_ENABLED=0 go install -ldflags "$(LDFLAGS)" $(CMD)
-	@echo "[+] Installed to $$(go env GOPATH)/bin/$(BINARY)"
+	CGO_ENABLED=0 $(GOCMD) install -ldflags "$(LDFLAGS)" $(CMD)
+	@echo "[+] Installed to $$($(GOCMD) env GOPATH)/bin/$(BINARY)"
 
 ## Cross-compile for Linux (Kali VM target)
 build-linux:
 	@echo "[*] Cross-compiling for Linux amd64..."
 	@mkdir -p $(BUILD_DIR)
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY)-linux-amd64 $(CMD)
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 $(GOCMD) build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY)-linux-amd64 $(CMD)
 	@echo "[+] $(BUILD_DIR)/$(BINARY)-linux-amd64"
 
 ## Cross-compile for Linux ARM64
 build-linux-arm:
 	@echo "[*] Cross-compiling for Linux arm64..."
 	@mkdir -p $(BUILD_DIR)
-	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY)-linux-arm64 $(CMD)
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 $(GOCMD) build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY)-linux-arm64 $(CMD)
 	@echo "[+] $(BUILD_DIR)/$(BINARY)-linux-arm64"
 
 ## Build all platforms
@@ -74,7 +84,7 @@ build-all: build build-linux build-linux-arm
 clean:
 	@echo "[*] Cleaning..."
 	rm -rf $(BUILD_DIR)
-	go clean -testcache
+	$(GOCMD) clean -testcache
 	@echo "[+] Clean"
 
 ## Show version
@@ -96,6 +106,7 @@ help:
 	@echo "  test           Run tests with coverage"
 	@echo "  test-v         Run tests verbose"
 	@echo "  coverage       Generate HTML coverage report"
+	@echo "  manpages       Generate CLI man pages into dist/man"
 	@echo "  vet            Run go vet"
 	@echo "  install        Install to GOPATH/bin"
 	@echo "  clean          Remove build artifacts"

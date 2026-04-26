@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -88,4 +90,40 @@ func TestProgressBarRenderBounds(t *testing.T) {
 	rendered := ProgressBar{Total: 2, Current: 5, Width: 8, Label: "Progress", ShowPct: true}.Render()
 	assert.Contains(t, rendered, "Progress")
 	assert.True(t, strings.Contains(rendered, "250%") || strings.Contains(rendered, "100%"))
+}
+
+func TestColorEnabledHonorsNO_COLOR(t *testing.T) {
+	oldStdoutTTY := stdoutTTY
+	stdoutTTY = func() bool { return true }
+	defer func() { stdoutTTY = oldStdoutTTY }()
+
+	require.NoError(t, os.Unsetenv("NO_COLOR"))
+	assert.True(t, ColorEnabled())
+
+	require.NoError(t, os.Setenv("NO_COLOR", "1"))
+	defer func() { _ = os.Unsetenv("NO_COLOR") }()
+	assert.False(t, ColorEnabled())
+}
+
+func TestDashboardViewWithoutColorWhenNO_COLORSet(t *testing.T) {
+	oldStdoutTTY := stdoutTTY
+	stdoutTTY = func() bool { return true }
+	defer func() { stdoutTTY = oldStdoutTTY }()
+
+	require.NoError(t, os.Setenv("NO_COLOR", "1"))
+	defer func() { _ = os.Unsetenv("NO_COLOR") }()
+
+	dash := NewDashboard("example.com", "recon", "scan-test")
+	dash.TotalModules = 1
+	dash.Stages = []StageDisplay{{
+		Name:   "Web analysis",
+		Status: "complete",
+		Modules: []ModuleStatus{{
+			Name:   "httpx_probe",
+			Status: "complete",
+		}},
+	}}
+
+	view := dash.View()
+	assert.NotRegexp(t, regexp.MustCompile(`\x1b\[[0-9;]*m`), view)
 }

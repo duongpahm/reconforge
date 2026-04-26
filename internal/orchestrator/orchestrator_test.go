@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/rs/zerolog"
@@ -20,6 +21,23 @@ import (
 type testModule struct {
 	name  string
 	runFn func(context.Context, *module.ScanContext) error
+}
+
+type synchronizedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *synchronizedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *synchronizedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
 }
 
 func (m *testModule) Name() string                    { return m.name }
@@ -393,7 +411,7 @@ func TestScan_WarnsWhenFindingsCountDecreases(t *testing.T) {
 	dir := t.TempDir()
 	cfg := minimalConfig(dir)
 
-	var logBuf bytes.Buffer
+	var logBuf synchronizedBuffer
 	logger := zerolog.New(&logBuf)
 
 	orch := New(cfg, logger)
@@ -440,7 +458,7 @@ func TestScan_RecoversFromPanic(t *testing.T) {
 	dir := t.TempDir()
 	cfg := minimalConfig(dir)
 
-	var logBuf bytes.Buffer
+	var logBuf synchronizedBuffer
 	logger := zerolog.New(&logBuf)
 
 	orch := New(cfg, logger)

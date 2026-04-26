@@ -1,0 +1,94 @@
+# Deep Profile - Extended reconnaissance for thorough assessment
+# High coverage, recursive enumeration, and active follow-up enabled
+
+general:
+  max_workers: 4
+  deep: true
+
+osint:
+  enabled: true
+  google_dorks: true
+  github_repos: true
+  github_leaks: true
+  email_harvest: true
+  cloud_enum: true
+  metadata: true
+  mail_hygiene: true
+  spf_dmarc: true
+  ip_info: true
+  third_parties: true
+  github_actions_audit: true
+
+subdomain:
+  enabled: true
+  passive: true
+  crt: true
+  brute: true
+  permutations: true
+  ai_permutations: true
+  recursive_passive: true
+  recursive_brute: true
+  takeover: true
+  zone_transfer: true
+  s3_buckets: true
+  wildcard_filter: true
+  regex_permut: true
+  ptr_cidrs: true
+  geo_info: true
+  sub_ia_permut: true
+
+web:
+  enabled: true
+  probe: true
+  screenshots: true
+  nuclei: true
+  cdnprovider: true
+  fuzzing: true
+  js_analysis: true
+  crawl: true
+  cms_scan: true
+  waf_detect: true
+  graphql: true
+  urlext: true
+  service_fingerprint: true
+  param_discovery: true
+  port_scan: true
+  virtual_hosts: true
+  url_checks: true
+  url_gf: true
+  iis_shortname: true
+  tls_ip_pivots: true
+  favirecon_tech: true
+  broken_links: true
+  wordlist_gen: true
+  sub_js_extract: true
+  wellknown_pivots: true
+  grpc_reflection: true
+  websocket_checks: true
+  wordlist_gen_roboxtractor: true
+  password_dict: true
+  llm_probe: true
+
+vuln:
+  enabled: true
+  xss: true
+  ssrf: true
+  sqli: true
+  ssti: true
+  lfi: true
+  ssl: true
+  smuggling: true
+  spray: true
+  command_injection: true
+  nuclei_dast: true
+  crlf: true
+  bypass4xx: true
+  webcache: true
+
+ratelimit:
+  adaptive: true
+  min_rate: 10
+  max_rate: 400
+  httpx: 150
+  nuclei: 80
+  ffuf: 50

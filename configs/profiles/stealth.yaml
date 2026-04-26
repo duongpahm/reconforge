@@ -1,0 +1,82 @@
+# Stealth Profile - Passive reconnaissance with strict rate limits
+# No active probing, tuned for low-noise target validation
+
+general:
+  max_workers: 2
+  deep: false
+  skip_missing_tools: true
+
+osint:
+  enabled: true
+  google_dorks: true
+  github_repos: true
+  github_leaks: true
+  email_harvest: true
+  cloud_enum: false
+  metadata: false
+  mail_hygiene: true
+  spf_dmarc: true
+  ip_info: true
+  third_parties: true
+  github_actions_audit: false
+
+subdomain:
+  enabled: true
+  passive: true
+  crt: true
+  brute: false
+  permutations: false
+  ai_permutations: false
+  recursive_passive: true
+  recursive_brute: false
+  takeover: false
+  zone_transfer: false
+  s3_buckets: false
+  wildcard_filter: true
+  regex_permut: false
+  ptr_cidrs: false
+  geo_info: false
+  sub_ia_permut: false
+
+web:
+  enabled: true
+  probe: false
+  screenshots: false
+  nuclei: false
+  cdnprovider: false
+  fuzzing: false
+  js_analysis: false
+  crawl: false
+  cms_scan: false
+  waf_detect: false
+  graphql: false
+  urlext: false
+  service_fingerprint: false
+  param_discovery: false
+  port_scan: false
+  virtual_hosts: false
+  url_checks: false
+  url_gf: false
+  iis_shortname: false
+  tls_ip_pivots: false
+  favirecon_tech: false
+  broken_links: false
+  wordlist_gen: false
+  sub_js_extract: false
+  wellknown_pivots: false
+  grpc_reflection: false
+  websocket_checks: false
+  wordlist_gen_roboxtractor: false
+  password_dict: false
+  llm_probe: false
+
+vuln:
+  enabled: false
+
+ratelimit:
+  adaptive: false
+  min_rate: 1
+  max_rate: 1
+  httpx: 1
+  nuclei: 1
+  ffuf: 1

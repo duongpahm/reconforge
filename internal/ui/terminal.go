@@ -23,37 +23,51 @@ var (
 
 // Styles provides pre-configured lipgloss styles.
 var (
-	StyleTitle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(ColorPrimary).
-			MarginBottom(1)
-
-	StyleSubtitle = lipgloss.NewStyle().
-			Foreground(ColorSecondary)
-
-	StyleSuccess = lipgloss.NewStyle().
-			Foreground(ColorSuccess)
-
-	StyleWarning = lipgloss.NewStyle().
-			Foreground(ColorWarning)
-
-	StyleDanger = lipgloss.NewStyle().
-			Foreground(ColorDanger)
-
-	StyleMuted = lipgloss.NewStyle().
-			Foreground(ColorMuted)
-
-	StyleBox = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(ColorPrimary).
-			Padding(1, 2)
-
-	StyleStatusBar = lipgloss.NewStyle().
-			Background(lipgloss.Color("#1F2937")).
-			Foreground(ColorText).
-			Padding(0, 1).
-			Width(80)
+	StyleTitle     lipgloss.Style
+	StyleSubtitle  lipgloss.Style
+	StyleSuccess   lipgloss.Style
+	StyleWarning   lipgloss.Style
+	StyleDanger    lipgloss.Style
+	StyleMuted     lipgloss.Style
+	StyleBox       lipgloss.Style
+	StyleStatusBar lipgloss.Style
 )
+
+func init() {
+	refreshStyles()
+}
+
+func refreshStyles() {
+	StyleTitle = lipgloss.NewStyle().
+		Bold(true).
+		MarginBottom(1)
+	StyleSubtitle = lipgloss.NewStyle()
+	StyleSuccess = lipgloss.NewStyle()
+	StyleWarning = lipgloss.NewStyle()
+	StyleDanger = lipgloss.NewStyle()
+	StyleMuted = lipgloss.NewStyle()
+	StyleBox = lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		Padding(1, 2)
+	StyleStatusBar = lipgloss.NewStyle().
+		Padding(0, 1).
+		Width(80)
+
+	if !ColorEnabled() {
+		return
+	}
+
+	StyleTitle = StyleTitle.Foreground(ColorPrimary)
+	StyleSubtitle = StyleSubtitle.Foreground(ColorSecondary)
+	StyleSuccess = StyleSuccess.Foreground(ColorSuccess)
+	StyleWarning = StyleWarning.Foreground(ColorWarning)
+	StyleDanger = StyleDanger.Foreground(ColorDanger)
+	StyleMuted = StyleMuted.Foreground(ColorMuted)
+	StyleBox = StyleBox.BorderForeground(ColorPrimary)
+	StyleStatusBar = StyleStatusBar.
+		Background(lipgloss.Color("#1F2937")).
+		Foreground(ColorText)
+}
 
 // ProgressBar renders a progress bar.
 type ProgressBar struct {
@@ -82,8 +96,11 @@ func (pb ProgressBar) Render() string {
 
 	bar := strings.Repeat("█", filled) + strings.Repeat("░", pb.Width-filled)
 
-	coloredBar := lipgloss.NewStyle().Foreground(ColorPrimary).Render(bar[:filled]) +
-		lipgloss.NewStyle().Foreground(ColorMuted).Render(bar[filled:])
+	coloredBar := bar
+	if ColorEnabled() {
+		coloredBar = lipgloss.NewStyle().Foreground(ColorPrimary).Render(bar[:filled]) +
+			lipgloss.NewStyle().Foreground(ColorMuted).Render(bar[filled:])
+	}
 
 	result := fmt.Sprintf("%s [%s]", pb.Label, coloredBar)
 	if pb.ShowPct {
@@ -158,6 +175,7 @@ type StageDisplay struct {
 
 // NewDashboard creates a new scan dashboard.
 func NewDashboard(target, mode, scanID string) Dashboard {
+	refreshStyles()
 	return Dashboard{
 		Target:    target,
 		Mode:      mode,

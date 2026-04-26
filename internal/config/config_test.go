@@ -137,6 +137,24 @@ func TestLoadProfile_NotFound(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestBundledProfilesExistAndLoad(t *testing.T) {
+	oldWd, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() {
+		_ = os.Chdir(oldWd)
+	}()
+
+	require.NoError(t, os.Chdir(filepath.Join("..", "..")))
+
+	base := &Config{}
+	for _, profileName := range []string{ProfileQuick, ProfileStealth, ProfileFull, ProfileDeep} {
+		t.Run(profileName, func(t *testing.T) {
+			_, err := LoadProfile(profileName, base, nopLogger)
+			require.NoError(t, err)
+		})
+	}
+}
+
 func TestLoad_MergesHomeConfigOverDefaults(t *testing.T) {
 	oldWd, err := os.Getwd()
 	require.NoError(t, err)

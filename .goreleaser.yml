@@ -3,6 +3,8 @@ version: 2
 before:
   hooks:
     - go mod tidy
+    - mkdir -p dist/man
+    - go run ./cmd/reconforge gen-manpages --out dist/man
 
 builds:
   - id: reconforge
@@ -25,6 +27,13 @@ archives:
   - id: reconforge
     formats: [tar.gz]
     name_template: "reconforge-{{ .Os }}-{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+      - CONTRIBUTING.md
+      - ARCHITECTURE.md
+      - dist/man/*.1
 
 checksum:
   name_template: checksums.txt
