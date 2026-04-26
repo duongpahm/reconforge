@@ -211,6 +211,7 @@ Release expectations:
 Update the relevant docs when changing:
 
 - release flow: [CHANGELOG.md](./CHANGELOG.md) and this file
+- release runbook: [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md)
 - architecture or execution model: [ARCHITECTURE.md](./ARCHITECTURE.md)
 - user-visible commands or profiles: `README.md`
 

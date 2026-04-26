@@ -226,6 +226,7 @@ gofmt -w . && go vet ./...              # Format + vet
 - [`docs/PIPE_RECIPES.md`](docs/PIPE_RECIPES.md) — Pipe-friendly snippets
 - [`CHANGELOG.md`](CHANGELOG.md) — Release history
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — Development and release workflow
+- [`RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md) — Release secrets, checks, and tag workflow
 - [`AUDIT_FIX_PLAN.md`](AUDIT_FIX_PLAN.md) — Audit fix plan (đã hoàn thành P0/P1/P2)
 - [`TERMINAL_OPTIMIZATION_PLAN.md`](TERMINAL_OPTIMIZATION_PLAN.md) — Roadmap
 
