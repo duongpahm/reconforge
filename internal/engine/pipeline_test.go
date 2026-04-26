@@ -206,3 +206,19 @@ func TestPipelineExecutor_Callbacks(t *testing.T) {
 	assert.True(t, modStarted)
 	assert.True(t, modCompleted)
 }
+
+func TestPipelineExecutor_ModulePanicRecovery(t *testing.T) {
+	p := NewPipeline()
+	p.AddStage(&Stage{Name: "s1", Modules: []string{"panic_mod"}})
+
+	exec := NewPipelineExecutor(p, 4, zerolog.Nop())
+	exec.RegisterModule("panic_mod", func(_ context.Context) (int, error) {
+		panic("boom")
+	})
+
+	results, err := exec.Execute(context.Background())
+	require.Error(t, err)
+	assert.Equal(t, StatusFailed, results["s1"].Status)
+	assert.Equal(t, StatusFailed, results["s1"].Modules["panic_mod"].Status)
+	assert.Contains(t, results["s1"].Modules["panic_mod"].Error.Error(), "panic recovered")
+}

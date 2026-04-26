@@ -48,6 +48,12 @@ func NewDomain(raw string) (Domain, error) {
 	return Domain{raw: raw, labels: labels}, nil
 }
 
+// ValidateDomain validates and normalizes a raw domain string.
+func ValidateDomain(raw string) error {
+	_, err := NewDomain(raw)
+	return err
+}
+
 // String returns the domain as a string.
 func (d Domain) String() string { return d.raw }
 

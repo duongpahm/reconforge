@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -66,7 +67,7 @@ func (o *Orchestrator) Results() *module.ScanResults {
 }
 
 // Scan executes a full scan against the given target.
-func (o *Orchestrator) Scan(ctx context.Context, target, mode string, resume bool) error {
+func (o *Orchestrator) Scan(ctx context.Context, target, mode string, resume bool) (err error) {
 	restoreMemLimit := applyMemoryLimit(o.cfg.General.MemoryLimitMB, o.logger)
 	defer restoreMemLimit()
 
@@ -127,12 +128,28 @@ func (o *Orchestrator) Scan(ctx context.Context, target, mode string, resume boo
 	// Store reference so Results() works after scan
 	o.results = scanCtx.Results
 
-	// Register module functions with the executor
-	executor := engine.NewPipelineExecutor(pipeline, o.cfg.General.MaxWorkers, o.logger)
-
 	// Find completed modules if resuming
 	completedModules := make(map[string]bool)
 	var activeScanID string
+
+	defer func() {
+		if r := recover(); r != nil {
+			o.logger.Error().
+				Interface("panic", r).
+				Bytes("stack", debug.Stack()).
+				Msg("orchestrator panic recovered")
+			if activeScanID != "" {
+				if persistErr := persistCheckpoint(stateMgr, activeScanID, target, mode, outputDir, scanCtx.Results); persistErr != nil {
+					o.logger.Warn().Err(persistErr).Msg("Failed to persist panic checkpoint")
+				}
+				stateMgr.MarkFailed(activeScanID)
+			}
+			err = fmt.Errorf("orchestrator panic recovered: %v", r)
+		}
+	}()
+
+	// Register module functions with the executor
+	executor := engine.NewPipelineExecutor(pipeline, o.cfg.General.MaxWorkers, o.logger)
 	if resume {
 		lastScan, err := stateMgr.GetLastScan(target)
 		if err == nil && lastScan != nil {
@@ -357,6 +374,9 @@ func (o *Orchestrator) Scan(ctx context.Context, target, mode string, resume boo
 		stateMgr.MarkFailed(activeScanID)
 		if err := persistCheckpoint(stateMgr, activeScanID, target, mode, outputDir, scanCtx.Results); err != nil {
 			o.logger.Warn().Err(err).Msg("Failed to persist failure checkpoint")
+		}
+		if errors.Is(execErr, context.Canceled) {
+			return context.Canceled
 		}
 		return fmt.Errorf("scan execution: %w", execErr)
 	}

@@ -4,6 +4,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"sort"
 	"sync"
 	"time"
@@ -357,8 +358,26 @@ func (pe *PipelineExecutor) executeModulesParallel(ctx context.Context, stage *S
 	wg.Wait()
 }
 
-func (pe *PipelineExecutor) executeModule(ctx context.Context, stageName, modName string) ModuleResult {
+func (pe *PipelineExecutor) executeModule(ctx context.Context, stageName, modName string) (mr ModuleResult) {
 	start := time.Now()
+	mr = ModuleResult{
+		Name: modName,
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			mr.Status = StatusFailed
+			mr.Duration = time.Since(start)
+			mr.Error = fmt.Errorf("panic recovered in module %q: %v", modName, r)
+			pe.logger.Error().
+				Str("module", modName).
+				Bytes("stack", debug.Stack()).
+				Msg("Module panic recovered")
+			if pe.OnModuleComplete != nil {
+				pe.OnModuleComplete(stageName, modName, &mr)
+			}
+		}
+	}()
 
 	if pe.OnModuleStart != nil {
 		pe.OnModuleStart(stageName, modName)
@@ -371,12 +390,9 @@ func (pe *PipelineExecutor) executeModule(ctx context.Context, stageName, modNam
 
 	fn, ok := pe.moduleFuncs[modName]
 	if !ok {
-		mr := ModuleResult{
-			Name:     modName,
-			Status:   StatusFailed,
-			Duration: time.Since(start),
-			Error:    fmt.Errorf("module %q not registered", modName),
-		}
+		mr.Status = StatusFailed
+		mr.Duration = time.Since(start)
+		mr.Error = fmt.Errorf("module %q not registered", modName)
 		if pe.OnModuleComplete != nil {
 			pe.OnModuleComplete(stageName, modName, &mr)
 		}
@@ -386,11 +402,8 @@ func (pe *PipelineExecutor) executeModule(ctx context.Context, stageName, modNam
 	findings, err := fn(ctx)
 	duration := time.Since(start)
 
-	mr := ModuleResult{
-		Name:     modName,
-		Duration: duration,
-		Findings: findings,
-	}
+	mr.Duration = duration
+	mr.Findings = findings
 
 	if err != nil {
 		mr.Status = StatusFailed

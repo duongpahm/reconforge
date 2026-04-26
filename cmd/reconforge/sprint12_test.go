@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -46,4 +47,16 @@ func TestScanCommandHasSkipMissingToolsFlag(t *testing.T) {
 	flag := scanCmd.Flags().Lookup("skip-missing-tools")
 	require.NotNil(t, flag)
 	assert.Equal(t, "false", flag.DefValue)
+}
+
+func TestValidateTargets(t *testing.T) {
+	assert.NoError(t, validateTargets([]string{"valid.example.com", "1.1.1.1", "10.0.0.0/24"}))
+	assert.Error(t, validateTargets([]string{"999.999.999.999"}))
+	assert.Error(t, validateTargets([]string{"no-tld"}))
+	assert.Error(t, validateTargets([]string{"exam ple.com"}))
+	assert.Error(t, validateTargets([]string{"10.0.0.0/99"}))
+}
+
+func TestExitCodeInterrupted(t *testing.T) {
+	assert.Equal(t, exitcode.ScanFailed, exitcode.Code(exitcode.Scan(context.Canceled)))
 }

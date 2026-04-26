@@ -1,12 +1,25 @@
 package runner
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // MissingToolError indicates the requested tool is not available in PATH.
 type MissingToolError struct {
-	Tool string
+	Tool    string
+	Hint    string
+	DocsURL string
 }
 
 func (e *MissingToolError) Error() string {
-	return fmt.Sprintf("tool %q not found in PATH", e.Tool)
+	var b strings.Builder
+	fmt.Fprintf(&b, "tool %q not found in PATH", e.Tool)
+	if e.Hint != "" {
+		fmt.Fprintf(&b, "\n  Fix:  %s", e.Hint)
+	}
+	if e.DocsURL != "" {
+		fmt.Fprintf(&b, "\n  Docs: %s", e.DocsURL)
+	}
+	return b.String()
 }

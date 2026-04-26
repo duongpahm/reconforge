@@ -132,7 +132,11 @@ func (r *LocalRunner) execute(ctx context.Context, tool string, args []string, o
 	if err != nil {
 		var execErr *exec.Error
 		if errors.As(err, &execErr) && errors.Is(execErr.Err, exec.ErrNotFound) {
-			return nil, &MissingToolError{Tool: tool}
+			return nil, &MissingToolError{
+				Tool:    tool,
+				Hint:    fmt.Sprintf("reconforge tools install %s", tool),
+				DocsURL: docsURLForTool(tool),
+			}
 		}
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			result.ExitCode = exitErr.ExitCode()
@@ -221,4 +225,29 @@ func (r *LocalRunner) RunPipe(ctx context.Context, cmds []PipeCmd) (*RunResult, 
 func (r *LocalRunner) IsInstalled(tool string) bool {
 	_, err := exec.LookPath(tool)
 	return err == nil
+}
+
+func docsURLForTool(tool string) string {
+	switch tool {
+	case "nuclei":
+		return "https://github.com/projectdiscovery/nuclei"
+	case "subfinder":
+		return "https://github.com/projectdiscovery/subfinder"
+	case "httpx":
+		return "https://github.com/projectdiscovery/httpx"
+	case "naabu":
+		return "https://github.com/projectdiscovery/naabu"
+	case "dnsx":
+		return "https://github.com/projectdiscovery/dnsx"
+	case "tlsx":
+		return "https://github.com/projectdiscovery/tlsx"
+	case "asnmap":
+		return "https://github.com/projectdiscovery/asnmap"
+	case "urlfinder":
+		return "https://github.com/projectdiscovery/urlfinder"
+	case "amass":
+		return "https://github.com/owasp-amass/amass"
+	default:
+		return ""
+	}
 }

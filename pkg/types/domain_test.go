@@ -130,3 +130,8 @@ func TestIsWildcard(t *testing.T) {
 	assert.False(t, IsWildcard("example.com"))
 	assert.False(t, IsWildcard("*example.com"))
 }
+
+func TestValidateDomain(t *testing.T) {
+	assert.NoError(t, ValidateDomain("valid.example.com"))
+	assert.Error(t, ValidateDomain("exam ple.com"))
+}

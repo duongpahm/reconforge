@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"bytes"
 	"context"
+	"errors"
 	"path/filepath"
 	"testing"
 
@@ -433,4 +434,45 @@ func TestScan_WarnsWhenFindingsCountDecreases(t *testing.T) {
 	require.NoError(t, orch.Scan(context.Background(), "example.com", "web", false))
 	assert.Contains(t, logBuf.String(), "findings count decreased - possible bug in module")
 	assert.Contains(t, logBuf.String(), "\"module\":\"js_analysis\"")
+}
+
+func TestScan_RecoversFromPanic(t *testing.T) {
+	dir := t.TempDir()
+	cfg := minimalConfig(dir)
+
+	var logBuf bytes.Buffer
+	logger := zerolog.New(&logBuf)
+
+	orch := New(cfg, logger)
+	orch.registry = module.NewRegistry()
+	require.NoError(t, orch.registry.Register(&testModule{
+		name: "domain_info",
+		runFn: func(context.Context, *module.ScanContext) error {
+			panic("boom")
+		},
+	}))
+	for _, name := range []string{
+		"ip_info", "email_harvest", "google_dorks", "github_dorks", "github_repos",
+		"github_leaks", "github_actions_audit", "metadata", "api_leaks", "third_parties",
+		"mail_hygiene", "spoof_check", "cloud_enum", "spf_dmarc",
+	} {
+		require.NoError(t, orch.registry.Register(&testModule{name: name}))
+	}
+
+	err := orch.Scan(context.Background(), "example.com", "osint", false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `stage "osint" failed`)
+	assert.Contains(t, logBuf.String(), "Module panic recovered")
+}
+
+func TestScan_InterruptedReturnsContextCanceled(t *testing.T) {
+	dir := t.TempDir()
+	cfg := minimalConfig(dir)
+	orch := New(cfg, zerolog.Nop())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := orch.Scan(ctx, "example.com", "osint", false)
+	assert.True(t, errors.Is(err, context.Canceled))
 }

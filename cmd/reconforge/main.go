@@ -2,12 +2,16 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/reconforge/reconforge/internal/exitcode"
@@ -20,6 +24,7 @@ import (
 	"github.com/reconforge/reconforge/internal/orchestrator"
 	"github.com/reconforge/reconforge/internal/report"
 	"github.com/reconforge/reconforge/internal/runner"
+	"github.com/reconforge/reconforge/pkg/types"
 )
 
 var (
@@ -38,6 +43,10 @@ func main() {
 		}
 	}
 	logger = zerolog.New(output).With().Timestamp().Logger()
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	rootCmd.SetContext(ctx)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(exitcode.Code(err))
@@ -126,6 +135,9 @@ var scanCmd = &cobra.Command{
 		if len(targets) == 0 {
 			return exitcode.Usage(fmt.Errorf("no targets found"))
 		}
+		if err := validateTargets(targets); err != nil {
+			return exitcode.Usage(err)
+		}
 
 		if scanTail {
 			return runScanWithTail(cmd, cfg, targets)
@@ -153,6 +165,10 @@ var scanCmd = &cobra.Command{
 			Msg("Starting ReconForge scan")
 
 		ctx := cmd.Context()
+		go func() {
+			<-ctx.Done()
+			logger.Warn().Msg("Interrupt received, finishing current modules and saving checkpoint")
+		}()
 
 		// Worker pool for multi-target scanning
 		sem := make(chan struct{}, scanParallel)
@@ -168,6 +184,10 @@ var scanCmd = &cobra.Command{
 
 				// Execute scan
 				if err := orch.Scan(ctx, t, scanMode, scanResume); err != nil {
+					if errors.Is(err, context.Canceled) {
+						errCh <- exitcode.Scan(fmt.Errorf("scan interrupted for %s", t))
+						return
+					}
 					// Send failure notification
 					notifier := notify.New(cfg.Export.Notify, logger)
 					alert := notify.NewAlertFromResults(t, "failed", time.Since(startedAt), orch.Results())
@@ -336,4 +356,25 @@ func coalesce(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func validateTargets(targets []string) error {
+	for _, target := range targets {
+		t := strings.TrimSpace(target)
+		switch {
+		case strings.Contains(t, "/"):
+			if err := types.ValidateCIDR(t); err != nil {
+				return err
+			}
+		case net.ParseIP(t) != nil:
+			if err := types.ValidateIP(t); err != nil {
+				return err
+			}
+		default:
+			if err := types.ValidateDomain(t); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

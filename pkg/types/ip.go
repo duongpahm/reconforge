@@ -29,6 +29,12 @@ func NewIP(raw string) (IP, error) {
 	return IP{raw: parsed, v6: isV6}, nil
 }
 
+// ValidateIP validates a raw IP string.
+func ValidateIP(raw string) error {
+	_, err := NewIP(raw)
+	return err
+}
+
 // String returns the IP as a string.
 func (ip IP) String() string { return ip.raw.String() }
 
@@ -66,6 +72,12 @@ func NewCIDR(raw string) (CIDR, error) {
 	}
 
 	return CIDR{raw: network.String(), network: network}, nil
+}
+
+// ValidateCIDR validates a raw CIDR string.
+func ValidateCIDR(raw string) error {
+	_, err := NewCIDR(raw)
+	return err
 }
 
 // String returns the CIDR as a string.
