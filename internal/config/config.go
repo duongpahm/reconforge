@@ -277,6 +277,7 @@ func Load(cfgFile string, logger zerolog.Logger) (*Config, error) {
 	// Expand ~ in paths
 	cfg.General.ToolsDir = expandHome(cfg.General.ToolsDir)
 	cfg.General.OutputDir = expandHome(cfg.General.OutputDir)
+	resolveNotifySecrets(&cfg)
 
 	if err := Validate(&cfg); err != nil {
 		return nil, fmt.Errorf("config validation failed: %w", err)
@@ -299,6 +300,11 @@ func defaultConfigPaths() []string {
 	}
 
 	return paths
+}
+
+// DefaultConfigPaths returns the ordered list of default config search paths.
+func DefaultConfigPaths() []string {
+	return append([]string(nil), defaultConfigPaths()...)
 }
 
 // setDefaults applies sane default values.
@@ -441,4 +447,40 @@ func expandHome(path string) string {
 		}
 	}
 	return path
+}
+
+func resolveNotifySecrets(cfg *Config) {
+	cfg.Export.Notify.SlackWebhook = resolveSecretRef(cfg.Export.Notify.SlackWebhook)
+	cfg.Export.Notify.DiscordWebhook = resolveSecretRef(cfg.Export.Notify.DiscordWebhook)
+	cfg.Export.Notify.TelegramToken = resolveSecretRef(cfg.Export.Notify.TelegramToken)
+	cfg.Export.Notify.TelegramChatID = resolveSecretRef(cfg.Export.Notify.TelegramChatID)
+}
+
+func resolveSecretRef(value string) string {
+	if !strings.HasPrefix(value, "${") || !strings.HasSuffix(value, "}") {
+		return value
+	}
+	name := strings.TrimSuffix(strings.TrimPrefix(value, "${"), "}")
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return value
+	}
+	if resolved, ok := os.LookupEnv(name); ok {
+		return resolved
+	}
+	return value
+}
+
+func HasNotifySecrets(cfg *Config) bool {
+	return cfg.Export.Notify.SlackWebhook != "" ||
+		cfg.Export.Notify.DiscordWebhook != "" ||
+		cfg.Export.Notify.TelegramToken != "" ||
+		cfg.Export.Notify.TelegramChatID != ""
+}
+
+func MaskSecret(value string) string {
+	if value == "" {
+		return ""
+	}
+	return "****"
 }

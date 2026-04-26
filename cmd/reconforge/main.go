@@ -242,6 +242,12 @@ var configShowCmd = &cobra.Command{
 		fmt.Printf("  Tools Dir:  %s\n", cfg.General.ToolsDir)
 		fmt.Printf("  Output Dir: %s\n", cfg.General.OutputDir)
 		fmt.Printf("  Workers:    %d\n", cfg.General.MaxWorkers)
+		fmt.Printf("  Notify:     slack=%s discord=%s telegram_token=%s telegram_chat_id=%s\n",
+			config.MaskSecret(cfg.Export.Notify.SlackWebhook),
+			config.MaskSecret(cfg.Export.Notify.DiscordWebhook),
+			config.MaskSecret(cfg.Export.Notify.TelegramToken),
+			config.MaskSecret(cfg.Export.Notify.TelegramChatID),
+		)
 		fmt.Printf("  Modules:    OSINT=%v Sub=%v Web=%v Vuln=%v\n",
 			cfg.OSINT.Enabled, cfg.Subdomain.Enabled, cfg.Web.Enabled, cfg.Vuln.Enabled)
 		return nil

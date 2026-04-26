@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/reconforge/reconforge/internal/config"
 	"github.com/reconforge/reconforge/internal/exitcode"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -71,3 +72,62 @@ func TestScopeSyncRequiresFlags(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--from, --program, and -o are required")
 }
+
+func TestDoctorWarnsOnWorldReadableSecretConfig(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.yaml")
+	require.NoError(t, os.WriteFile(cfgPath, []byte(`
+general:
+  output_dir: ./Recon
+  max_workers: 4
+  checkpoint_freq: 1
+dns:
+  resolver: auto
+ratelimit:
+  min_rate: 10
+  max_rate: 500
+export:
+  format: all
+  notify:
+    slack_webhook: https://hooks.slack.test/secret
+ai:
+  report_profile: bughunter
+`), 0o644))
+
+	oldCfgFile := cfgFile
+	t.Cleanup(func() { cfgFile = oldCfgFile })
+	cfgFile = cfgPath
+
+	out := captureStdout(t, func() {
+		require.NoError(t, doctorCmd.RunE(doctorCmd, nil))
+	})
+
+	assert.Contains(t, out, "WARNING: config file contains secrets")
+}
+
+func TestActiveConfigPathFindsExplicitConfig(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, os.WriteFile(path, []byte(""), 0o600))
+
+	got, ok := activeConfigPath(path)
+	require.True(t, ok)
+	assert.Equal(t, path, got)
+}
+
+func TestActiveConfigPathSearchesDefaults(t *testing.T) {
+	oldWd, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() { _ = os.Chdir(oldWd) }()
+
+	root := t.TempDir()
+	require.NoError(t, os.Chdir(root))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "configs"), 0o755))
+	defaultPath := filepath.Join(root, "configs", "default.yaml")
+	require.NoError(t, os.WriteFile(defaultPath, []byte(""), 0o600))
+
+	got, ok := activeConfigPath("")
+	require.True(t, ok)
+	assert.Equal(t, filepath.Join("configs", "default.yaml"), got)
+}
+
+var _ = config.MaskSecret

@@ -183,3 +183,27 @@ general:
 	assert.Equal(t, 9, cfg.General.MaxWorkers)
 	assert.Equal(t, "auto", cfg.DNS.Resolver)
 }
+
+func TestLoad_ResolvesSecretRefs(t *testing.T) {
+	t.Setenv("SLACK_HOOK", "https://hooks.slack.test/example")
+	t.Setenv("TG_TOKEN", "secret-token")
+
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.yaml")
+	require.NoError(t, os.WriteFile(cfgPath, []byte(`
+export:
+  notify:
+    slack_webhook: ${SLACK_HOOK}
+    telegram_token: ${TG_TOKEN}
+`), 0o644))
+
+	cfg, err := Load(cfgPath, nopLogger)
+	require.NoError(t, err)
+	assert.Equal(t, "https://hooks.slack.test/example", cfg.Export.Notify.SlackWebhook)
+	assert.Equal(t, "secret-token", cfg.Export.Notify.TelegramToken)
+}
+
+func TestMaskSecret(t *testing.T) {
+	assert.Equal(t, "", MaskSecret(""))
+	assert.Equal(t, "****", MaskSecret("secret"))
+}

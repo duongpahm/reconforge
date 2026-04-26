@@ -19,11 +19,19 @@ import (
 	"runtime"
 	"strings"
 
+	_ "embed"
 	"github.com/reconforge/reconforge/internal/config"
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/openpgp"
 )
 
-const releaseRepo = "reconforge/reconforge"
+const (
+	releaseRepo               = "duongpahm/ReconForge"
+	releaseSigningFingerprint = "4C10 5CE2 18BD E48C 2267 0A2B B314 7C45 1DC4 8DAF"
+)
+
+//go:embed release-public-key.asc
+var embeddedReleasePublicKey []byte
 
 type releaseInfo struct {
 	TagName string         `json:"tag_name"`
@@ -74,7 +82,7 @@ var selfUpdateCmd = &cobra.Command{
 			}
 		}
 
-		binaryAsset, checksumAsset := chooseReleaseAssets(release.Assets, runtime.GOOS, runtime.GOARCH)
+		binaryAsset, checksumAsset, signatureAsset := chooseReleaseAssets(release.Assets, runtime.GOOS, runtime.GOARCH)
 		if binaryAsset == nil {
 			return fmt.Errorf("no release asset found for %s/%s", runtime.GOOS, runtime.GOARCH)
 		}
@@ -95,6 +103,21 @@ var selfUpdateCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf("download checksum: %w", err)
 			}
+			if signatureAsset == nil {
+				return fmt.Errorf("checksum signature asset not found")
+			}
+			sigPayload, err := downloadAsset(cmd.Context(), signatureAsset.BrowserDownloadURL)
+			if err != nil {
+				return fmt.Errorf("download checksum signature: %w", err)
+			}
+			pubKey, err := releasePublicKey()
+			if err != nil {
+				return fmt.Errorf("load release public key: %w", err)
+			}
+			if err := verifyReleaseSignature(sumPayload, sigPayload, pubKey); err != nil {
+				return fmt.Errorf("verify checksum signature: %w", err)
+			}
+			fmt.Println("Verified checksum signature.")
 			if err := verifyChecksum(binaryAsset.Name, binaryBytes, sumPayload); err != nil {
 				return fmt.Errorf("verify checksum: %w", err)
 			}
@@ -198,15 +221,20 @@ func parseVersionParts(v string) []int {
 	return out
 }
 
-func chooseReleaseAssets(assets []releaseAsset, goos, goarch string) (*releaseAsset, *releaseAsset) {
+func chooseReleaseAssets(assets []releaseAsset, goos, goarch string) (*releaseAsset, *releaseAsset, *releaseAsset) {
 	targets := expectedAssetNames(goos, goarch)
 	var binary *releaseAsset
 	var checksum *releaseAsset
+	var signature *releaseAsset
 
 	for i := range assets {
 		name := assets[i].Name
 		if checksum == nil && isChecksumAsset(name) {
 			checksum = &assets[i]
+			continue
+		}
+		if signature == nil && isChecksumSignatureAsset(name) {
+			signature = &assets[i]
 		}
 		if binary != nil {
 			continue
@@ -219,7 +247,7 @@ func chooseReleaseAssets(assets []releaseAsset, goos, goarch string) (*releaseAs
 		}
 	}
 
-	return binary, checksum
+	return binary, checksum, signature
 }
 
 func expectedAssetNames(goos, goarch string) []string {
@@ -233,7 +261,12 @@ func expectedAssetNames(goos, goarch string) []string {
 
 func isChecksumAsset(name string) bool {
 	lower := strings.ToLower(name)
-	return strings.Contains(lower, "checksum") || strings.Contains(lower, "sha256")
+	return !isChecksumSignatureAsset(name) && (strings.Contains(lower, "checksum") || strings.Contains(lower, "sha256"))
+}
+
+func isChecksumSignatureAsset(name string) bool {
+	lower := strings.ToLower(name)
+	return strings.HasSuffix(lower, "checksums.txt.sig") || strings.HasSuffix(lower, "checksum.txt.sig") || strings.HasSuffix(lower, ".sha256.sig")
 }
 
 func downloadAsset(ctx context.Context, url string) ([]byte, error) {
@@ -320,6 +353,35 @@ func verifyChecksum(assetName string, binary []byte, checksumPayload []byte) err
 	}
 	if !bytes.Equal(sum[:], want) {
 		return fmt.Errorf("checksum mismatch")
+	}
+	return nil
+}
+
+func releasePublicKey() ([]byte, error) {
+	if path := strings.TrimSpace(os.Getenv("RECONFORGE_UPDATE_PUBLIC_KEY_FILE")); path != "" {
+		return os.ReadFile(path)
+	}
+	if len(embeddedReleasePublicKey) == 0 {
+		return nil, fmt.Errorf("embedded release public key is empty")
+	}
+	return embeddedReleasePublicKey, nil
+}
+
+func verifyReleaseSignature(message, sig, publicKey []byte) error {
+	keyring, err := openpgp.ReadArmoredKeyRing(bytes.NewReader(publicKey))
+	if err != nil {
+		return fmt.Errorf("parse public key: %w", err)
+	}
+
+	if bytes.HasPrefix(bytes.TrimSpace(sig), []byte("-----BEGIN PGP SIGNATURE-----")) {
+		if _, err := openpgp.CheckArmoredDetachedSignature(keyring, bytes.NewReader(message), bytes.NewReader(sig)); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if _, err := openpgp.CheckDetachedSignature(keyring, bytes.NewReader(message), bytes.NewReader(sig)); err != nil {
+		return err
 	}
 	return nil
 }

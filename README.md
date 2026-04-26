@@ -31,6 +31,15 @@ go build -ldflags="-s -w" -o reconforge ./cmd/reconforge
 
 Output lưu tại `./Recon/<target>/` gồm: raw output theo phase, `state.db` (SQLite), `report.{json,md,html}`.
 
+## License
+
+ReconForge is released under the [MIT License](LICENSE).
+
+## Release signing key
+
+- Fingerprint: `4C10 5CE2 18BD E48C 2267 0A2B B314 7C45 1DC4 8DAF`
+- Public key: [`cmd/reconforge/release-public-key.asc`](cmd/reconforge/release-public-key.asc)
+
 ---
 
 ## Tính năng

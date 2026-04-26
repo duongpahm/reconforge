@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"os"
 
+	"github.com/reconforge/reconforge/internal/config"
 	"github.com/reconforge/reconforge/internal/tools"
 	"github.com/spf13/cobra"
 )
@@ -46,8 +48,32 @@ var doctorCmd = &cobra.Command{
 			fmt.Printf("\nFound %d missing tools. Run 'reconforge tools install all' to install them.\n", missing)
 		}
 
+		cfg, err := config.Load(cfgFile, logger)
+		if err == nil {
+			if path, ok := activeConfigPath(cfgFile); ok {
+				if info, statErr := os.Stat(path); statErr == nil && config.HasNotifySecrets(cfg) && info.Mode().Perm()&0o077 != 0 {
+					fmt.Printf("\nWARNING: config file contains secrets and is too permissive. Run: chmod 600 %s\n", path)
+				}
+			}
+		}
+
 		return nil
 	},
+}
+
+func activeConfigPath(explicit string) (string, bool) {
+	if explicit != "" {
+		if _, err := os.Stat(explicit); err == nil {
+			return explicit, true
+		}
+		return "", false
+	}
+	for _, path := range config.DefaultConfigPaths() {
+		if _, err := os.Stat(path); err == nil {
+			return path, true
+		}
+	}
+	return "", false
 }
 
 func init() {

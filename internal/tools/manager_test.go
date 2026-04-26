@@ -99,3 +99,52 @@ func TestCheckEnvironmentCreatesReconforgeDir(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, info.IsDir())
 }
+
+func TestInstallRecordsChecksumAndDetectsTampering(t *testing.T) {
+	const toolName = "fakeinstall"
+
+	original, existed := Registry[toolName]
+	t.Cleanup(func() {
+		if existed {
+			Registry[toolName] = original
+		} else {
+			delete(Registry, toolName)
+		}
+	})
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("PATH", t.TempDir())
+	goBin := filepath.Join(home, "go", "bin")
+	require.NoError(t, os.MkdirAll(goBin, 0o755))
+
+	Registry[toolName] = Tool{
+		Name: toolName,
+		InstallCmd: []string{
+			"/bin/sh", "-c",
+			"printf '#!/bin/sh\\necho original\\n' > \"$HOME/go/bin/fakeinstall\" && /bin/chmod 755 \"$HOME/go/bin/fakeinstall\"",
+		},
+		Type:    "binary",
+		DocsURL: "https://example.com/fakeinstall",
+	}
+
+	manager := NewManager()
+	require.NoError(t, manager.Install(toolName))
+
+	manifestPath, err := manager.checksumManifestPath()
+	require.NoError(t, err)
+	manifestData, err := os.ReadFile(manifestPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(manifestData), toolName)
+
+	binPath := filepath.Join(goBin, toolName)
+	f, err := os.OpenFile(binPath, os.O_APPEND|os.O_WRONLY, 0)
+	require.NoError(t, err)
+	_, err = f.WriteString("tampered")
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+
+	err = manager.Install(toolName)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "checksum mismatch")
+}

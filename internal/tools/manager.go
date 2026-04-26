@@ -1,10 +1,15 @@
 package tools
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -13,6 +18,8 @@ type Tool struct {
 	Name       string
 	InstallCmd []string // e.g., ["go", "install", "-v", "..."]
 	Type       string   // go, python, binary
+	DocsURL    string
+	SHA256     string
 }
 
 // Registry holds the configuration of all manageable tools.
@@ -21,46 +28,55 @@ var Registry = map[string]Tool{
 		Name:       "nuclei",
 		InstallCmd: []string{"go", "install", "-v", "github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest"},
 		Type:       "go",
+		DocsURL:    "https://github.com/projectdiscovery/nuclei",
 	},
 	"subfinder": {
 		Name:       "subfinder",
 		InstallCmd: []string{"go", "install", "-v", "github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest"},
 		Type:       "go",
+		DocsURL:    "https://github.com/projectdiscovery/subfinder",
 	},
 	"httpx": {
 		Name:       "httpx",
 		InstallCmd: []string{"go", "install", "-v", "github.com/projectdiscovery/httpx/cmd/httpx@latest"},
 		Type:       "go",
+		DocsURL:    "https://github.com/projectdiscovery/httpx",
 	},
 	"naabu": {
 		Name:       "naabu",
 		InstallCmd: []string{"go", "install", "-v", "github.com/projectdiscovery/naabu/v2/cmd/naabu@latest"},
 		Type:       "go",
+		DocsURL:    "https://github.com/projectdiscovery/naabu",
 	},
 	"amass": {
 		Name:       "amass",
 		InstallCmd: []string{"go", "install", "-v", "github.com/owasp-amass/amass/v4/...@master"},
 		Type:       "go",
+		DocsURL:    "https://github.com/owasp-amass/amass",
 	},
 	"dnsx": {
 		Name:       "dnsx",
 		InstallCmd: []string{"go", "install", "-v", "github.com/projectdiscovery/dnsx/cmd/dnsx@latest"},
 		Type:       "go",
+		DocsURL:    "https://github.com/projectdiscovery/dnsx",
 	},
 	"tlsx": {
 		Name:       "tlsx",
 		InstallCmd: []string{"go", "install", "-v", "github.com/projectdiscovery/tlsx/cmd/tlsx@latest"},
 		Type:       "go",
+		DocsURL:    "https://github.com/projectdiscovery/tlsx",
 	},
 	"urlfinder": {
 		Name:       "urlfinder",
 		InstallCmd: []string{"go", "install", "-v", "github.com/projectdiscovery/urlfinder/cmd/urlfinder@latest"},
 		Type:       "go",
+		DocsURL:    "https://github.com/projectdiscovery/urlfinder",
 	},
 	"asnmap": {
 		Name:       "asnmap",
 		InstallCmd: []string{"go", "install", "-v", "github.com/projectdiscovery/asnmap/cmd/asnmap@latest"},
 		Type:       "go",
+		DocsURL:    "https://github.com/projectdiscovery/asnmap",
 	},
 }
 
@@ -107,12 +123,26 @@ func (m *Manager) Install(name string) error {
 		return fmt.Errorf("no automated installation available for %s", name)
 	}
 
+	if installed, path := m.IsInstalled(name); installed {
+		if err := m.verifyInstalledChecksum(name, path, tool); err != nil {
+			return err
+		}
+	}
+
 	cmd := exec.Command(tool.InstallCmd[0], tool.InstallCmd[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to install %s: %w", name, err)
+	}
+
+	installed, path := m.IsInstalled(name)
+	if !installed {
+		return fmt.Errorf("tool %s installed but binary not found in PATH", name)
+	}
+	if err := m.recordInstalledChecksum(name, path, tool); err != nil {
+		return err
 	}
 
 	return nil
@@ -129,6 +159,9 @@ func (m *Manager) List() []ToolStatus {
 			Path:      p,
 		})
 	}
+	sort.Slice(statuses, func(i, j int) bool {
+		return statuses[i].Name < statuses[j].Name
+	})
 	return statuses
 }
 
@@ -161,4 +194,99 @@ func (m *Manager) CheckEnvironment() []string {
 	}
 
 	return issues
+}
+
+func (m *Manager) verifyInstalledChecksum(name, path string, tool Tool) error {
+	sum, err := sha256File(path)
+	if err != nil {
+		return fmt.Errorf("checksum %s: %w", name, err)
+	}
+	if tool.SHA256 != "" && !strings.EqualFold(sum, tool.SHA256) {
+		return fmt.Errorf("checksum mismatch for %s: got %s, want %s", name, sum, tool.SHA256)
+	}
+
+	manifest, err := m.loadChecksumManifest()
+	if err != nil {
+		return err
+	}
+	if expected, ok := manifest[name]; ok && !strings.EqualFold(sum, expected) {
+		return fmt.Errorf("checksum mismatch for %s: got %s, want %s", name, sum, expected)
+	}
+	return nil
+}
+
+func (m *Manager) recordInstalledChecksum(name, path string, tool Tool) error {
+	sum, err := sha256File(path)
+	if err != nil {
+		return fmt.Errorf("checksum %s: %w", name, err)
+	}
+	if tool.SHA256 != "" && !strings.EqualFold(sum, tool.SHA256) {
+		return fmt.Errorf("checksum mismatch for %s: got %s, want %s", name, sum, tool.SHA256)
+	}
+
+	manifest, err := m.loadChecksumManifest()
+	if err != nil {
+		return err
+	}
+	manifest[name] = sum
+	return m.saveChecksumManifest(manifest)
+}
+
+func (m *Manager) checksumManifestPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".reconforge", "tool-checksums.json"), nil
+}
+
+func (m *Manager) loadChecksumManifest() (map[string]string, error) {
+	path, err := m.checksumManifestPath()
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return map[string]string{}, nil
+		}
+		return nil, fmt.Errorf("read checksum manifest: %w", err)
+	}
+	manifest := make(map[string]string)
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		return nil, fmt.Errorf("parse checksum manifest: %w", err)
+	}
+	return manifest, nil
+}
+
+func (m *Manager) saveChecksumManifest(manifest map[string]string) error {
+	path, err := m.checksumManifestPath()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return fmt.Errorf("create checksum manifest dir: %w", err)
+	}
+	data, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal checksum manifest: %w", err)
+	}
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		return fmt.Errorf("write checksum manifest: %w", err)
+	}
+	return nil
+}
+
+func sha256File(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }

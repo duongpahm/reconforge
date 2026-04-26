@@ -21,6 +21,10 @@ func TestWriteInitConfigCreatesExpectedDefaults(t *testing.T) {
 	assert.Contains(t, string(data), "output_dir: ./Recon")
 	assert.Contains(t, string(data), "default_profile: quick")
 	assert.Contains(t, string(data), "channel: none")
+
+	info, err := os.Stat(configPath)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
 }
 
 func TestExitCodeMapping(t *testing.T) {
