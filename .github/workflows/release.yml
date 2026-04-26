@@ -25,11 +25,13 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - name: Import release GPG key
-        uses: crazy-max/ghaction-import-gpg@v6
-        with:
-          gpg_private_key: ${{ secrets.RECONFORGE_GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.RECONFORGE_GPG_PASSPHRASE }}
+      # GPG signing disabled for v0.1.0-rc1 (no key configured yet).
+      # Re-enable for v0.1.0 stable — see docs/RELEASE_RUNBOOK.md § 1.
+      # - name: Import release GPG key
+      #   uses: crazy-max/ghaction-import-gpg@v6
+      #   with:
+      #     gpg_private_key: ${{ secrets.RECONFORGE_GPG_PRIVATE_KEY }}
+      #     passphrase: ${{ secrets.RECONFORGE_GPG_PASSPHRASE }}
       - name: Verify goreleaser config
         uses: goreleaser/goreleaser-action@v6
         with:
@@ -42,4 +44,3 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GPG_FINGERPRINT: ${{ secrets.RECONFORGE_GPG_FINGERPRINT }}
