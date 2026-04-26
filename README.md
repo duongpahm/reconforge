@@ -109,7 +109,7 @@ reconforge version      Print version
 | Web | 30 | `httpx_probe`, `screenshots`, `crawler`, `nuclei_check`, `web_fuzz`, `cms_scanner`, ... |
 | Vuln | 15 | `nuclei`, `xss_scan`, `sqli_scan`, `ssrf_scan`, `nuclei_dast`, `bypass_4xx`, `lfi_check`, ... |
 
-Đầy đủ danh sách module trong [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+Đầy đủ danh sách module trong [`ARCHITECTURE.md`](ARCHITECTURE.md).
 Test regression: `internal/orchestrator/registry_coverage_test.go` đảm bảo mọi module đăng ký phải có ≥ 1 stage trong pipeline.
 
 ---
@@ -215,15 +215,17 @@ gofmt -w . && go vet ./...              # Format + vet
 4. Thêm config field vào `internal/config/config.go` (nếu cần)
 5. `go build ./... && go test ./...`
 
-> ⚠️ Bỏ qua step 3 → `TestAllRegisteredModulesAreWired` sẽ fail. Chi tiết: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+> ⚠️ Bỏ qua step 3 → `TestAllRegisteredModulesAreWired` sẽ fail. Chi tiết: [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ---
 
 ## Tài liệu
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — Internal architecture, layer responsibilities, data flow
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) — Internal architecture, layer responsibilities, data flow
 - [`docs/RECIPES.md`](docs/RECIPES.md) — 13 workflow recipes
 - [`docs/PIPE_RECIPES.md`](docs/PIPE_RECIPES.md) — Pipe-friendly snippets
+- [`CHANGELOG.md`](CHANGELOG.md) — Release history
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — Development and release workflow
 - [`AUDIT_FIX_PLAN.md`](AUDIT_FIX_PLAN.md) — Audit fix plan (đã hoàn thành P0/P1/P2)
 - [`TERMINAL_OPTIMIZATION_PLAN.md`](TERMINAL_OPTIMIZATION_PLAN.md) — Roadmap
 
