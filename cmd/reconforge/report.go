@@ -7,7 +7,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/reconforge/reconforge/internal/project"
+	"github.com/duongpahm/ReconForge/internal/project"
 	"github.com/spf13/cobra"
 )
 

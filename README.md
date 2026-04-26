@@ -13,8 +13,8 @@
 
 ```bash
 # Build từ source (cần Go 1.23+)
-git clone https://github.com/duongpahm/reconforge.git
-cd reconforge/reconforge
+git clone https://github.com/duongpahm/ReconForge.git
+cd ReconForge
 go build -ldflags="-s -w" -o reconforge ./cmd/reconforge
 ```
 

@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	_ "embed"
-	"github.com/reconforge/reconforge/internal/config"
+	"github.com/duongpahm/ReconForge/internal/config"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/openpgp"
 )

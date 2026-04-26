@@ -8,8 +8,8 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/reconforge/reconforge/internal/engine"
-	"github.com/reconforge/reconforge/internal/module"
+	"github.com/duongpahm/ReconForge/internal/engine"
+	"github.com/duongpahm/ReconForge/internal/module"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

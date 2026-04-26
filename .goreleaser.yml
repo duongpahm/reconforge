@@ -20,8 +20,8 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X github.com/reconforge/reconforge/internal/config.Version={{ .Version }}
-      - -X github.com/reconforge/reconforge/internal/config.BuildTime={{ .Date }}
+      - -X github.com/duongpahm/ReconForge/internal/config.Version={{ .Version }}
+      - -X github.com/duongpahm/ReconForge/internal/config.BuildTime={{ .Date }}
 
 archives:
   - id: reconforge

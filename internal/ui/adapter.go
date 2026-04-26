@@ -7,8 +7,8 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/reconforge/reconforge/internal/engine"
-	"github.com/reconforge/reconforge/internal/module"
+	"github.com/duongpahm/ReconForge/internal/engine"
+	"github.com/duongpahm/ReconForge/internal/module"
 )
 
 // DashboardAdapter bridges the orchestrator execution with the TUI dashboard.

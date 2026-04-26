@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/reconforge/reconforge/pkg/types"
+	"github.com/duongpahm/ReconForge/pkg/types"
 )
 
 // Scope manages target scope definitions.

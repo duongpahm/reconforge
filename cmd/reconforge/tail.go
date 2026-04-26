@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/reconforge/reconforge/internal/config"
-	"github.com/reconforge/reconforge/internal/engine"
-	"github.com/reconforge/reconforge/internal/ui"
+	"github.com/duongpahm/ReconForge/internal/config"
+	"github.com/duongpahm/ReconForge/internal/engine"
+	"github.com/duongpahm/ReconForge/internal/ui"
 	"github.com/spf13/cobra"
 )
 

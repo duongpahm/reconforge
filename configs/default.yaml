@@ -1,5 +1,5 @@
 # ReconForge Default Configuration
-# See: https://github.com/reconforge/reconforge
+# See: https://github.com/duongpahm/ReconForge
 
 general:
   tools_dir: ~/Tools

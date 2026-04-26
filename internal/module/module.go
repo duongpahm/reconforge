@@ -7,11 +7,11 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/reconforge/reconforge/internal/cache"
-	"github.com/reconforge/reconforge/internal/config"
-	"github.com/reconforge/reconforge/internal/engine"
-	"github.com/reconforge/reconforge/internal/ratelimit"
-	"github.com/reconforge/reconforge/internal/runner"
+	"github.com/duongpahm/ReconForge/internal/cache"
+	"github.com/duongpahm/ReconForge/internal/config"
+	"github.com/duongpahm/ReconForge/internal/engine"
+	"github.com/duongpahm/ReconForge/internal/ratelimit"
+	"github.com/duongpahm/ReconForge/internal/runner"
 )
 
 // Module is the interface that all reconnaissance modules must implement.

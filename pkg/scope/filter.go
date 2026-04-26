@@ -3,7 +3,7 @@ package scope
 import (
 	"strings"
 
-	"github.com/reconforge/reconforge/pkg/types"
+	"github.com/duongpahm/ReconForge/pkg/types"
 )
 
 // Filter provides result filtering based on scope, sensitivity, and deduplication.

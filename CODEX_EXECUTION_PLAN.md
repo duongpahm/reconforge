@@ -30,6 +30,23 @@
 - Local coverage measurement with `go test -cover...` remains environment-limited on this machine because the Go 1.25 toolchain reports `go: no such tool "covdata"`. CI coverage workflow was added to run this in a cleaner environment.
 - `make manpages` now supports explicit Go binary override via `make GO=/path/to/go manpages`, which avoids relying on an older `go` in `PATH`.
 
+### Post-review fixes (2026-04-26)
+
+GPT-5.5 review (via code-reviewer agent) tìm thấy 5 issues trong Phase 2. 3 issue HIGH/MEDIUM đã fix:
+
+| # | Severity | Issue | Fix | File |
+|---|----------|-------|-----|------|
+| 1 | HIGH | SIGINT trả exit code 2 thay vì 130 | Thêm `exitcode.Interrupt()` + `CriticalFinding()`, gọi `Interrupt()` khi `context.Canceled` | `internal/exitcode/codes.go`, `cmd/reconforge/main.go:187` |
+| 2 | MEDIUM | `MissingToolError` thiếu `✗`, sai indent | Format đúng spec 3 dòng `✗ ... / Fix: ... / Docs: ...` | `internal/runner/errors.go` |
+| 3 | MEDIUM | Wildcard domain `*.example.com` bị reject | Thêm `IsWildcard()` check trong `validateTargets`, validate parent domain | `cmd/reconforge/main.go:361` |
+| 4 | HIGH | Panic recovery trong worker goroutine | **FALSE POSITIVE** — `engine/pipeline.go:367-380` đã có per-module `recover()` | (no fix needed) |
+| 5 | LOW | TUI + SIGINT goroutine race | Defer fix sang v0.2 (không block release) | `internal/orchestrator/orchestrator.go:352` |
+
+Test mới thêm:
+- `internal/exitcode/codes_test.go` — verify Interrupt/CriticalFinding wrapping + Code() unwrap chain
+- `internal/runner/errors_test.go` — verify MissingToolError format + errors.As() unwrap
+- `cmd/reconforge/validate_targets_test.go` — 16 test case cho validateTargets() (valid + invalid + wildcard)
+
 > **Audience:** Codex (AI agent thực thi)
 > **Reviewer:** GPT-5.5
 > **Ngày:** 2026-04-26
@@ -173,8 +190,8 @@ Mỗi task tuân theo template:
       goarch: [amd64, arm64]
       ldflags:
         - -s -w
-        - -X github.com/reconforge/reconforge/internal/config.Version={{.Version}}
-        - -X github.com/reconforge/reconforge/internal/config.BuildTime={{.Date}}
+        - -X github.com/duongpahm/ReconForge/internal/config.Version={{.Version}}
+        - -X github.com/duongpahm/ReconForge/internal/config.BuildTime={{.Date}}
   archives:
     - format: tar.gz
       name_template: "reconforge_{{.Version}}_{{.Os}}_{{.Arch}}"

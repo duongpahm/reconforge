@@ -11,9 +11,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/reconforge/reconforge/internal/config"
-	"github.com/reconforge/reconforge/internal/engine"
-	"github.com/reconforge/reconforge/internal/exitcode"
+	"github.com/duongpahm/ReconForge/internal/config"
+	"github.com/duongpahm/ReconForge/internal/engine"
+	"github.com/duongpahm/ReconForge/internal/exitcode"
 	"github.com/spf13/cobra"
 )
 

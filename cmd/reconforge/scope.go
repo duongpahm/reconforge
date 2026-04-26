@@ -5,9 +5,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/reconforge/reconforge/internal/exitcode"
-	"github.com/reconforge/reconforge/pkg/platform"
-	"github.com/reconforge/reconforge/pkg/scope"
+	"github.com/duongpahm/ReconForge/internal/exitcode"
+	"github.com/duongpahm/ReconForge/pkg/platform"
+	"github.com/duongpahm/ReconForge/pkg/scope"
 	"github.com/spf13/cobra"
 )
 

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/reconforge/reconforge/pkg/scope"
+	"github.com/duongpahm/ReconForge/pkg/scope"
 )
 
 // PlatformClient defines the interface for bug bounty platforms.

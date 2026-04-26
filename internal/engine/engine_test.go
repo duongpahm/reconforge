@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/reconforge/reconforge/internal/config"
+	"github.com/duongpahm/ReconForge/internal/config"
 )
 
 func newTestEngine(t *testing.T) (*Engine, *StateManager) {

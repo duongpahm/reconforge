@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/reconforge/reconforge/internal/models"
+	"github.com/duongpahm/ReconForge/internal/models"
 )
 
 // ScanDiff represents the difference between two scans.

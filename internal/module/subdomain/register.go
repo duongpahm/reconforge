@@ -1,6 +1,6 @@
 package subdomain
 
-import "github.com/reconforge/reconforge/internal/module"
+import "github.com/duongpahm/ReconForge/internal/module"
 
 // RegisterAll registers all subdomain modules with the given registry.
 func RegisterAll(registry *module.Registry) {

@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/reconforge/reconforge/internal/models"
+	"github.com/duongpahm/ReconForge/internal/models"
 )
 
 // Rule defines a criteria for triggering a notification.

@@ -15,8 +15,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/reconforge/reconforge/internal/models"
-	"github.com/reconforge/reconforge/internal/project"
+	"github.com/duongpahm/ReconForge/internal/models"
+	"github.com/duongpahm/ReconForge/internal/project"
 )
 
 //go:embed templates/burp.xml.tmpl

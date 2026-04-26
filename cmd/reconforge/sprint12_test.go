@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/reconforge/reconforge/internal/exitcode"
+	"github.com/duongpahm/ReconForge/internal/exitcode"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -8,7 +8,7 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/reconforge/reconforge/internal/config"
+	"github.com/duongpahm/ReconForge/internal/config"
 )
 
 // Engine orchestrates the entire scan lifecycle.

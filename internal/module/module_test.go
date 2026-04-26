@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/reconforge/reconforge/internal/config"
-	"github.com/reconforge/reconforge/internal/engine"
+	"github.com/duongpahm/ReconForge/internal/config"
+	"github.com/duongpahm/ReconForge/internal/engine"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

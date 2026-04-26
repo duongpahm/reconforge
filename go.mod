@@ -1,4 +1,4 @@
-module github.com/reconforge/reconforge
+module github.com/duongpahm/ReconForge
 
 go 1.25.0
 

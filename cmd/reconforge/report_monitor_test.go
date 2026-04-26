@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/reconforge/reconforge/internal/module"
+	"github.com/duongpahm/ReconForge/internal/module"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

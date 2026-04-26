@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/reconforge/reconforge/internal/config"
-	"github.com/reconforge/reconforge/internal/tools"
+	"github.com/duongpahm/ReconForge/internal/config"
+	"github.com/duongpahm/ReconForge/internal/tools"
 	"github.com/spf13/cobra"
 )
 

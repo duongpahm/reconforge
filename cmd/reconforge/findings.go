@@ -10,9 +10,9 @@ import (
 	"os/exec"
 	"strings"
 
-	findingsexport "github.com/reconforge/reconforge/internal/findings"
-	"github.com/reconforge/reconforge/internal/models"
-	"github.com/reconforge/reconforge/internal/project"
+	findingsexport "github.com/duongpahm/ReconForge/internal/findings"
+	"github.com/duongpahm/ReconForge/internal/models"
+	"github.com/duongpahm/ReconForge/internal/project"
 	"github.com/spf13/cobra"
 )
 

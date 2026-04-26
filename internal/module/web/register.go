@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/reconforge/reconforge/internal/module"
+	"github.com/duongpahm/ReconForge/internal/module"
 )
 
 // RegisterAll registers all web modules with the given registry.

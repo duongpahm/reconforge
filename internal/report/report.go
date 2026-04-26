@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/reconforge/reconforge/internal/module"
+	"github.com/duongpahm/ReconForge/internal/module"
 )
 
 // ScanReport holds all data for report generation.

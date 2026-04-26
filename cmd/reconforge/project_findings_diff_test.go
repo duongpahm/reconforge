@@ -6,8 +6,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/reconforge/reconforge/internal/module"
-	"github.com/reconforge/reconforge/internal/project"
+	"github.com/duongpahm/ReconForge/internal/module"
+	"github.com/duongpahm/ReconForge/internal/project"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

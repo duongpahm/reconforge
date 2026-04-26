@@ -14,17 +14,17 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/reconforge/reconforge/internal/exitcode"
-	"github.com/reconforge/reconforge/internal/ui"
+	"github.com/duongpahm/ReconForge/internal/exitcode"
+	"github.com/duongpahm/ReconForge/internal/ui"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 
-	"github.com/reconforge/reconforge/internal/config"
-	"github.com/reconforge/reconforge/internal/notify"
-	"github.com/reconforge/reconforge/internal/orchestrator"
-	"github.com/reconforge/reconforge/internal/report"
-	"github.com/reconforge/reconforge/internal/runner"
-	"github.com/reconforge/reconforge/pkg/types"
+	"github.com/duongpahm/ReconForge/internal/config"
+	"github.com/duongpahm/ReconForge/internal/notify"
+	"github.com/duongpahm/ReconForge/internal/orchestrator"
+	"github.com/duongpahm/ReconForge/internal/report"
+	"github.com/duongpahm/ReconForge/internal/runner"
+	"github.com/duongpahm/ReconForge/pkg/types"
 )
 
 var (
@@ -184,8 +184,8 @@ var scanCmd = &cobra.Command{
 
 				// Execute scan
 				if err := orch.Scan(ctx, t, scanMode, scanResume); err != nil {
-					if errors.Is(err, context.Canceled) {
-						errCh <- exitcode.Scan(fmt.Errorf("scan interrupted for %s", t))
+					if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+						errCh <- exitcode.Interrupt(fmt.Errorf("scan interrupted for %s", t))
 						return
 					}
 					// Send failure notification
@@ -369,6 +369,12 @@ func validateTargets(targets []string) error {
 		case net.ParseIP(t) != nil:
 			if err := types.ValidateIP(t); err != nil {
 				return err
+			}
+		case types.IsWildcard(t):
+			// Wildcard domains (e.g. "*.example.com") are common in bug bounty scope.
+			// Validate the parent domain by stripping the wildcard prefix.
+			if err := types.ValidateDomain(strings.TrimPrefix(t, "*.")); err != nil {
+				return fmt.Errorf("invalid wildcard target %q: %w", t, err)
 			}
 		default:
 			if err := types.ValidateDomain(t); err != nil {

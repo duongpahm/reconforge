@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/reconforge/reconforge/internal/tools"
-	"github.com/reconforge/reconforge/internal/ui"
+	"github.com/duongpahm/ReconForge/internal/tools"
+	"github.com/duongpahm/ReconForge/internal/ui"
 	"github.com/spf13/cobra"
 )
 

@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/reconforge/reconforge/internal/daemon"
-	"github.com/reconforge/reconforge/internal/notify"
-	"github.com/reconforge/reconforge/internal/project"
-	"github.com/reconforge/reconforge/internal/ui"
+	"github.com/duongpahm/ReconForge/internal/daemon"
+	"github.com/duongpahm/ReconForge/internal/notify"
+	"github.com/duongpahm/ReconForge/internal/project"
+	"github.com/duongpahm/ReconForge/internal/ui"
 	"github.com/robfig/cron/v3"
 	"github.com/spf13/cobra"
 )

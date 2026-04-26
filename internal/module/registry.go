@@ -5,7 +5,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/reconforge/reconforge/internal/engine"
+	"github.com/duongpahm/ReconForge/internal/engine"
 )
 
 // Registry manages module discovery and registration.

@@ -10,8 +10,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/reconforge/reconforge/internal/models"
-	"github.com/reconforge/reconforge/internal/project"
+	"github.com/duongpahm/ReconForge/internal/models"
+	"github.com/duongpahm/ReconForge/internal/project"
 )
 
 type TicketBackend interface {

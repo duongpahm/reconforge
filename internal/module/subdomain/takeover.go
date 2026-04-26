@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/reconforge/reconforge/internal/config"
-	"github.com/reconforge/reconforge/internal/engine"
-	"github.com/reconforge/reconforge/internal/module"
-	"github.com/reconforge/reconforge/internal/runner"
+	"github.com/duongpahm/ReconForge/internal/config"
+	"github.com/duongpahm/ReconForge/internal/engine"
+	"github.com/duongpahm/ReconForge/internal/module"
+	"github.com/duongpahm/ReconForge/internal/runner"
 )
 
 // Takeover detects subdomain takeover vulnerabilities using dnstake.

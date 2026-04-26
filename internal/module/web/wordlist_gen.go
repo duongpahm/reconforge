@@ -8,9 +8,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/reconforge/reconforge/internal/config"
-	"github.com/reconforge/reconforge/internal/engine"
-	"github.com/reconforge/reconforge/internal/module"
+	"github.com/duongpahm/ReconForge/internal/config"
+	"github.com/duongpahm/ReconForge/internal/engine"
+	"github.com/duongpahm/ReconForge/internal/module"
 )
 
 // WordlistGen aggregates target-specific vocabulary from URLs and subdomains.

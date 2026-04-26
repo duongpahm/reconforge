@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/reconforge/reconforge/internal/models"
-	"github.com/reconforge/reconforge/internal/module"
+	"github.com/duongpahm/ReconForge/internal/models"
+	"github.com/duongpahm/ReconForge/internal/module"
 )
 
 // SaveFindings converts and persists an array of module.Finding to the database.

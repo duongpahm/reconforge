@@ -57,6 +57,18 @@ func MissingTool(err error) error {
 	return wrap(ToolMissing, err)
 }
 
+// Interrupt wraps an error with the SIGINT exit code (130).
+// Use when scan is cancelled via Ctrl+C / SIGTERM.
+func Interrupt(err error) error {
+	return wrap(Interrupted, err)
+}
+
+// CriticalFinding wraps an error with the critical-finding exit code (3).
+// Use when scan completes successfully but found critical/high severity findings.
+func CriticalFinding(err error) error {
+	return wrap(CriticalFound, err)
+}
+
 func Code(err error) int {
 	if err == nil {
 		return OK
