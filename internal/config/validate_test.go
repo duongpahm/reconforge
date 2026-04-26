@@ -9,17 +9,11 @@ import (
 func validConfig() *Config {
 	return &Config{
 		General: GeneralConfig{
-			ToolsDir:   "~/Tools",
-			OutputDir:  "./Recon",
-			Parallel:   true,
-			MaxWorkers: 4,
-		},
-		VM: VMConfig{
-			Enabled:  true,
-			Provider: "virtualbox",
-			Memory:   4096,
-			CPUs:     2,
-			SSHPort:  2222,
+			ToolsDir:       "~/Tools",
+			OutputDir:      "./Recon",
+			Parallel:       true,
+			MaxWorkers:     4,
+			CheckpointFreq: 1,
 		},
 		DNS: DNSConfig{
 			Resolver: "auto",
@@ -63,19 +57,6 @@ func TestValidate_InvalidMaxWorkers(t *testing.T) {
 func TestValidate_EmptyOutputDir(t *testing.T) {
 	cfg := validConfig()
 	cfg.General.OutputDir = ""
-	assert.Error(t, Validate(cfg))
-}
-
-func TestValidate_InvalidVMProvider(t *testing.T) {
-	cfg := validConfig()
-	cfg.VM.Enabled = true
-	cfg.VM.Provider = "vmware"
-	assert.Error(t, Validate(cfg))
-}
-
-func TestValidate_VMMemoryTooLow(t *testing.T) {
-	cfg := validConfig()
-	cfg.VM.Memory = 512
 	assert.Error(t, Validate(cfg))
 }
 

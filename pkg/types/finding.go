@@ -92,6 +92,13 @@ type Finding struct {
 	// Raw tool output (for debugging / full context)
 	RawOutput string `json:"raw_output,omitempty"`
 
+	// HTTP Replay Data (for web findings)
+	RequestRaw  string `json:"request_raw,omitempty"`
+	ResponseRaw string `json:"response_raw,omitempty"`
+
+	// Pentester notes
+	Notes string `json:"notes,omitempty"`
+
 	// Timestamps
 	FoundAt   time.Time `json:"found_at"`
 	UpdatedAt time.Time `json:"updated_at,omitempty"`

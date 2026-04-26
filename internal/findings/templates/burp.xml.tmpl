@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues burpVersion="ReconForge" exportTime="">
+{{- range .Findings }}
+  <issue>
+    <serialNumber>0</serialNumber>
+    <type>0</type>
+    <name>{{ xml .Title }}</name>
+    <host ip="">{{ xml .Host }}</host>
+    <path>{{ xml .URL }}</path>
+    <location>{{ xml .URL }}</location>
+    <severity>{{ xml .Severity }}</severity>
+    <confidence>Firm</confidence>
+    <issueBackground>{{ xml .Description }}</issueBackground>
+    <remediationBackground></remediationBackground>
+    <issueDetail>{{ xml .Description }}</issueDetail>
+    <remediationDetail></remediationDetail>
+    <requestresponse>
+      <request base64="false">{{ xml .RequestRaw }}</request>
+      <response base64="false">{{ xml .ResponseRaw }}</response>
+    </requestresponse>
+  </issue>
+{{- end }}
+</issues>

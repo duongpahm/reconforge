@@ -206,14 +206,3 @@ func TestPipelineExecutor_Callbacks(t *testing.T) {
 	assert.True(t, modStarted)
 	assert.True(t, modCompleted)
 }
-
-func TestDefaultPipeline(t *testing.T) {
-	p := DefaultPipeline()
-	require.NoError(t, p.Validate())
-
-	order, err := p.TopologicalOrder()
-	require.NoError(t, err)
-	assert.Len(t, order, 7)
-	assert.Equal(t, "osint", order[0].Name)
-	assert.Equal(t, "vuln", order[6].Name) // vuln must be last
-}

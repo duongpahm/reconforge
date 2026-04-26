@@ -2,8 +2,11 @@ package notify
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -64,6 +67,72 @@ func TestSendSlack(t *testing.T) {
 	alert := &Alert{Target: "test.com", Status: "completed", Subdomain: 100}
 	n.Send(context.Background(), alert)
 	assert.True(t, received, "Slack webhook should have been called")
+}
+
+func TestSendDiscordAndTelegram(t *testing.T) {
+	var discordPayload map[string]any
+	discordServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &discordPayload)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer discordServer.Close()
+
+	var telegramPayload map[string]any
+	telegramServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &telegramPayload)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer telegramServer.Close()
+
+	logger := zerolog.Nop()
+	cfg := config.NotifyConfig{
+		Enabled:        true,
+		DiscordWebhook: discordServer.URL,
+		TelegramToken:  "token",
+		TelegramChatID: "12345",
+	}
+	n := New(cfg, logger)
+
+	alert := &Alert{
+		Target:    "test.com",
+		Status:    "failed",
+		Duration:  "2m0s",
+		Subdomain: 2,
+		LiveHosts: 1,
+		Findings:  3,
+		Critical:  1,
+		High:      1,
+	}
+
+	n.sendDiscord(context.Background(), alert)
+	assert.NotNil(t, discordPayload["embeds"])
+
+	n.cfg.TelegramToken = "bot-token"
+	n.client = &http.Client{
+		Transport: rewriteNotifyTransport{baseURL: telegramServer.URL},
+	}
+	n.sendTelegram(context.Background(), alert)
+	assert.Equal(t, "12345", telegramPayload["chat_id"])
+	assert.Equal(t, "HTML", telegramPayload["parse_mode"])
+}
+
+type rewriteNotifyTransport struct {
+	baseURL string
+}
+
+func (t rewriteNotifyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	target := strings.TrimRight(t.baseURL, "/") + "/" + strings.TrimPrefix(req.URL.Path, "/")
+	if req.URL.RawQuery != "" {
+		target += "?" + req.URL.RawQuery
+	}
+	newReq, err := http.NewRequestWithContext(req.Context(), req.Method, target, req.Body)
+	if err != nil {
+		return nil, err
+	}
+	newReq.Header = req.Header.Clone()
+	return http.DefaultTransport.RoundTrip(newReq)
 }
 
 func TestSendDiscord(t *testing.T) {

@@ -272,7 +272,7 @@ func (d Dashboard) View() string {
 	var b strings.Builder
 
 	// Header
-	b.WriteString(StyleTitle.Render("⚡ ReconForge"))
+	b.WriteString(StyleTitle.Render("[*] ReconForge"))
 	b.WriteString("\n")
 	b.WriteString(StyleSubtitle.Render(fmt.Sprintf("Target: %s | Mode: %s | Scan: %s",
 		d.Target, d.Mode, d.ScanID[:min(12, len(d.ScanID))])))

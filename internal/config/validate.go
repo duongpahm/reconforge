@@ -16,25 +16,14 @@ func Validate(cfg *Config) error {
 	if cfg.General.MaxWorkers > 100 {
 		errs = append(errs, "general.max_workers should not exceed 100")
 	}
+	if cfg.General.CheckpointFreq < 1 {
+		errs = append(errs, "general.checkpoint_freq must be >= 1")
+	}
+	if cfg.General.MemoryLimitMB < 0 {
+		errs = append(errs, "general.memory_limit_mb must be >= 0")
+	}
 	if cfg.General.OutputDir == "" {
 		errs = append(errs, "general.output_dir cannot be empty")
-	}
-
-	// VM
-	if cfg.VM.Enabled {
-		validProviders := map[string]bool{"virtualbox": true, "qemu": true, "vagrant": true}
-		if !validProviders[cfg.VM.Provider] {
-			errs = append(errs, fmt.Sprintf("vm.provider must be one of: virtualbox, qemu, vagrant (got %q)", cfg.VM.Provider))
-		}
-		if cfg.VM.Memory < 1024 {
-			errs = append(errs, "vm.memory must be >= 1024 MB")
-		}
-		if cfg.VM.CPUs < 1 {
-			errs = append(errs, "vm.cpus must be >= 1")
-		}
-		if cfg.VM.SSHPort < 1 || cfg.VM.SSHPort > 65535 {
-			errs = append(errs, "vm.ssh_port must be 1-65535")
-		}
 	}
 
 	// DNS

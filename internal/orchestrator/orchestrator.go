@@ -4,12 +4,11 @@ package orchestrator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
-
-	"golang.org/x/term"
 
 	"github.com/rs/zerolog"
 
@@ -22,6 +21,7 @@ import (
 	"github.com/reconforge/reconforge/internal/module/subdomain"
 	"github.com/reconforge/reconforge/internal/module/vuln"
 	"github.com/reconforge/reconforge/internal/module/web"
+	"github.com/reconforge/reconforge/internal/project"
 	"github.com/reconforge/reconforge/internal/ratelimit"
 	"github.com/reconforge/reconforge/internal/runner"
 	"github.com/reconforge/reconforge/internal/ui"
@@ -66,8 +66,15 @@ func (o *Orchestrator) Results() *module.ScanResults {
 }
 
 // Scan executes a full scan against the given target.
-func (o *Orchestrator) Scan(ctx context.Context, target, mode string) error {
-	outputDir := filepath.Join(o.cfg.General.OutputDir, target)
+func (o *Orchestrator) Scan(ctx context.Context, target, mode string, resume bool) error {
+	restoreMemLimit := applyMemoryLimit(o.cfg.General.MemoryLimitMB, o.logger)
+	defer restoreMemLimit()
+
+	dirName := target
+	if o.cfg.General.Prefix != "" {
+		dirName = o.cfg.General.Prefix + "_" + target
+	}
+	outputDir := filepath.Join(o.cfg.General.OutputDir, dirName)
 	if err := os.MkdirAll(outputDir, 0o755); err != nil {
 		return fmt.Errorf("create output dir: %w", err)
 	}
@@ -88,7 +95,13 @@ func (o *Orchestrator) Scan(ctx context.Context, target, mode string) error {
 	eng.SetPipeline(pipeline)
 
 	// Build shared scan context for modules
-	localRunner := runner.NewLocalRunner(o.logger)
+	var toolRunner runner.ToolRunner
+	if o.cfg.General.DryRun {
+		toolRunner = runner.NewDryRunner(o.logger)
+		o.logger.Info().Msg("Running in DRY-RUN mode")
+	} else {
+		toolRunner = runner.NewLocalRunner(o.logger)
+	}
 	fileCache, _ := cache.NewFileCache(filepath.Join(outputDir, ".cache"))
 	limiter := ratelimit.NewAdaptiveLimiter(
 		ratelimit.AdaptiveConfig{
@@ -103,7 +116,7 @@ func (o *Orchestrator) Scan(ctx context.Context, target, mode string) error {
 		Target:      target,
 		Config:      o.cfg,
 		State:       stateMgr,
-		Runner:      localRunner,
+		Runner:      toolRunner,
 		RateLimiter: limiter,
 		Cache:       fileCache,
 		Logger:      o.logger,
@@ -117,10 +130,60 @@ func (o *Orchestrator) Scan(ctx context.Context, target, mode string) error {
 	// Register module functions with the executor
 	executor := engine.NewPipelineExecutor(pipeline, o.cfg.General.MaxWorkers, o.logger)
 
+	// Find completed modules if resuming
+	completedModules := make(map[string]bool)
+	var activeScanID string
+	if resume {
+		lastScan, err := stateMgr.GetLastScan(target)
+		if err == nil && lastScan != nil {
+			activeScanID = lastScan.ID
+			for _, m := range lastScan.Modules {
+				if m.Status == engine.StatusComplete {
+					completedModules[m.Name] = true
+				}
+			}
+			o.logger.Info().Str("id", activeScanID).Int("completed", len(completedModules)).Msg("Resuming scan")
+		} else {
+			o.logger.Warn().Msg("No previous scan found to resume, starting fresh")
+			resume = false
+		}
+	}
+
+	if !resume {
+		activeScanID, err = stateMgr.StartScan(target, mode)
+		if err != nil {
+			return fmt.Errorf("start scan state: %w", err)
+		}
+	}
+
+	if err := persistCheckpoint(stateMgr, activeScanID, target, mode, outputDir, scanCtx.Results); err != nil {
+		o.logger.Warn().Err(err).Msg("Failed to persist initial checkpoint")
+	}
+
+	if resume {
+		var checkpoint ScanCheckpoint
+		if err := stateMgr.LoadCheckpoint(activeScanID, &checkpoint); err == nil {
+			o.logger.Info().
+				Time("updated_at", checkpoint.UpdatedAt).
+				Int("completed", checkpoint.Completed).
+				Int("failed", checkpoint.Failed).
+				Int("findings", checkpoint.Findings).
+				Msg("Recovered scan checkpoint")
+		}
+	}
+
 	for _, modName := range o.collectModuleNames(pipeline) {
 		mod, ok := o.registry.Get(modName)
 		if !ok {
 			o.logger.Warn().Str("module", modName).Msg("Module not found in registry, skipping")
+			continue
+		}
+
+		if completedModules[modName] {
+			o.logger.Info().Str("module", modName).Msg("Skipping completed module (resume)")
+			executor.RegisterModule(modName, func(ctx context.Context) (int, error) {
+				return 0, nil
+			})
 			continue
 		}
 
@@ -137,16 +200,34 @@ func (o *Orchestrator) Scan(ctx context.Context, target, mode string) error {
 		// Capture the module for the closure
 		m := mod
 		executor.RegisterModule(modName, func(ctx context.Context) (int, error) {
+			before := len(scanCtx.Results.GetFindings())
 			if err := m.Run(ctx, scanCtx); err != nil {
+				var missingTool *runner.MissingToolError
+				if errors.As(err, &missingTool) && o.cfg.General.SkipMissingTools {
+					o.logger.Warn().
+						Str("module", modName).
+						Str("tool", missingTool.Tool).
+						Str("fix", fmt.Sprintf("reconforge tools install %s", missingTool.Tool)).
+						Msg("Skipping module because required tool is missing")
+					return 0, nil
+				}
 				return 0, err
 			}
-			// Return finding count for this module
-			return len(scanCtx.Results.GetFindings()), nil
+			after := len(scanCtx.Results.GetFindings())
+			if after < before {
+				o.logger.Warn().
+					Str("module", modName).
+					Int("before", before).
+					Int("after", after).
+					Msg("findings count decreased - possible bug in module")
+				return 0, nil
+			}
+			return after - before, nil
 		})
 	}
 
 	// Setup TUI only when not in debug/verbose mode AND running in a real terminal
-	useTUI := o.logger.GetLevel() > zerolog.DebugLevel && term.IsTerminal(int(os.Stderr.Fd()))
+	useTUI := o.logger.GetLevel() > zerolog.DebugLevel && ui.IsStderrTTY()
 	var program *tea.Program
 	var adapter *ui.DashboardAdapter
 
@@ -167,25 +248,79 @@ func (o *Orchestrator) Scan(ctx context.Context, target, mode string) error {
 		executor.OnModuleComplete = adapter.OnModuleComplete
 	} else {
 		// Wire standard callbacks
+		executor.OnStageStart = func(stage string) {
+			o.logger.Info().
+				Str("event", "phase_start").
+				Str("phase", stage).
+				Msg("Phase starting")
+		}
+
+		executor.OnStageComplete = func(stage string, result *engine.StageResult) {
+			level := o.logger.Info()
+			if result.Status != engine.StatusComplete {
+				level = o.logger.Warn()
+			}
+			level.
+				Str("event", "phase_complete").
+				Str("phase", stage).
+				Str("status", string(result.Status)).
+				Dur("duration", result.Duration).
+				Msg("Phase completed")
+		}
+
 		executor.OnModuleStart = func(stage, moduleName string) {
 			o.logger.Info().
+				Str("event", "module_start").
 				Str("stage", stage).
 				Str("module", moduleName).
 				Msg("Module starting")
+			if err := stateMgr.UpdateModule(activeScanID, moduleName, engine.StatusRunning, 0, 0, ""); err != nil {
+				o.logger.Warn().Err(err).Str("module", moduleName).Msg("Failed to persist module start state")
+			}
+			if err := persistCheckpoint(stateMgr, activeScanID, target, mode, outputDir, scanCtx.Results); err != nil {
+				o.logger.Warn().Err(err).Str("module", moduleName).Msg("Failed to persist module checkpoint")
+			}
 		}
 
 		executor.OnModuleComplete = func(stage, moduleName string, result *engine.ModuleResult) {
-			status := "✅"
+			status := "[+]"
 			if result.Error != nil {
-				status = "❌"
+				status = "[-]"
 			}
-			o.logger.Info().
+			level := o.logger.Info()
+			if result.Error != nil {
+				level = o.logger.Warn()
+			}
+			level.
+				Str("event", "module_complete").
 				Str("stage", stage).
 				Str("module", moduleName).
 				Str("status", status).
 				Int("findings", result.Findings).
 				Dur("duration", result.Duration).
 				Msg("Module completed")
+
+			errMsg := ""
+			if result.Error != nil {
+				errMsg = result.Error.Error()
+				var missingTool *runner.MissingToolError
+				if errors.As(result.Error, &missingTool) {
+					o.logger.Error().
+						Str("event", "tool_missing").
+						Str("module", moduleName).
+						Str("tool", missingTool.Tool).
+						Str("fix", fmt.Sprintf("reconforge tools install %s", missingTool.Tool)).
+						Msg("Module skipped because required tool is missing")
+				}
+			}
+			if err := stateMgr.UpdateModule(activeScanID, moduleName, result.Status, result.Findings, result.Duration.Seconds(), errMsg); err != nil {
+				o.logger.Warn().Err(err).Str("module", moduleName).Msg("Failed to persist module completion state")
+			}
+			if shouldPersistCheckpoint(stateMgr, activeScanID, o.cfg.General.CheckpointFreq, result.Status != engine.StatusComplete) {
+				if err := persistCheckpoint(stateMgr, activeScanID, target, mode, outputDir, scanCtx.Results); err != nil {
+					o.logger.Warn().Err(err).Str("module", moduleName).Msg("Failed to persist module checkpoint")
+				}
+			}
 		}
 	}
 
@@ -194,7 +329,7 @@ func (o *Orchestrator) Scan(ctx context.Context, target, mode string) error {
 		Str("target", target).
 		Str("mode", mode).
 		Int("modules", o.registry.Count()).
-		Msg("🚀 Starting ReconForge scan")
+		Msg("[*] Starting ReconForge scan")
 
 	var execErr error
 	if useTUI {
@@ -219,11 +354,32 @@ func (o *Orchestrator) Scan(ctx context.Context, target, mode string) error {
 	}
 
 	if execErr != nil {
+		stateMgr.MarkFailed(activeScanID)
+		if err := persistCheckpoint(stateMgr, activeScanID, target, mode, outputDir, scanCtx.Results); err != nil {
+			o.logger.Warn().Err(err).Msg("Failed to persist failure checkpoint")
+		}
 		return fmt.Errorf("scan execution: %w", execErr)
+	}
+
+	stateMgr.MarkComplete(activeScanID)
+	if err := persistCheckpoint(stateMgr, activeScanID, target, mode, outputDir, scanCtx.Results); err != nil {
+		o.logger.Warn().Err(err).Msg("Failed to persist final checkpoint")
 	}
 
 	// Final summary
 	results := scanCtx.Results
+
+	// Sprint 8: Persist findings to global Project database
+	if pm, err := project.NewManager(); err == nil {
+		if err := pm.SaveFindings(activeScanID, target, results.GetFindings()); err != nil {
+			o.logger.Warn().Err(err).Msg("Failed to persist findings to database")
+		} else {
+			// Auto-dedup newly saved findings
+			pm.DedupFindings(target, true)
+		}
+		pm.Close()
+	}
+
 	o.logger.Info().
 		Str("target", target).
 		Int("subdomains", results.SubdomainCount()).
@@ -317,7 +473,7 @@ func (o *Orchestrator) fullPipeline() *engine.Pipeline {
 	p.AddStage(&engine.Stage{
 		Name:      "web_deep",
 		Phase:     engine.PhaseWeb,
-		Modules:   []string{"url_checks", "js_analysis", "param_discovery", "url_gf", "urlext", "service_fingerprint", "tls_ip_pivots", "virtual_hosts", "favirecon_tech", "nuclei_check", "graphql_scan", "iis_shortname", "jschecks", "broken_links", "wordlist_gen", "wordlist_gen_roboxtractor", "password_dict", "sub_js_extract", "wellknown_pivots", "grpc_reflection", "websocket_checks", "llm_probe"},
+		Modules:   []string{"url_checks", "js_analysis", "param_discovery", "url_gf", "urlext", "service_fingerprint", "tls_ip_pivots", "virtual_hosts", "favirecon_tech", "nuclei_check", "cms_scanner", "web_fuzz", "graphql_scan", "iis_shortname", "jschecks", "broken_links", "wordlist_gen", "wordlist_gen_roboxtractor", "password_dict", "sub_js_extract", "wellknown_pivots", "grpc_reflection", "websocket_checks", "llm_probe"},
 		Parallel:  false,
 		MaxJobs:   1,
 		DependsOn: []string{"web_analysis"},
@@ -326,9 +482,9 @@ func (o *Orchestrator) fullPipeline() *engine.Pipeline {
 	p.AddStage(&engine.Stage{
 		Name:      "vuln",
 		Phase:     engine.PhaseVuln,
-		Modules:   []string{"nuclei", "xss_scan", "sqli_scan", "ssrf_scan", "ssl_audit"},
+		Modules:   []string{"nuclei", "xss_scan", "sqli_scan", "ssrf_scan", "ssl_audit", "bypass_4xx", "command_injection", "crlf_check", "fuzzparams", "http_smuggling", "lfi_check", "nuclei_dast", "spraying", "ssti_check", "webcache"},
 		Parallel:  true,
-		MaxJobs:   3,
+		MaxJobs:   4,
 		DependsOn: []string{"web_deep"},
 	})
 
@@ -342,7 +498,7 @@ func (o *Orchestrator) passivePipeline() *engine.Pipeline {
 	p.AddStage(&engine.Stage{
 		Name:     "osint",
 		Phase:    engine.PhaseOSINT,
-		Modules:  []string{"domain_info", "email_harvest", "google_dorks", "github_dorks", "github_repos", "github_leaks", "github_actions_audit", "metadata", "api_leaks", "third_parties", "mail_hygiene", "spoof_check", "cloud_enum", "spf_dmarc"},
+		Modules:  []string{"domain_info", "ip_info", "email_harvest", "google_dorks", "github_dorks", "github_repos", "github_leaks", "github_actions_audit", "metadata", "api_leaks", "third_parties", "mail_hygiene", "spoof_check", "cloud_enum", "spf_dmarc"},
 		Parallel: true,
 		MaxJobs:  4,
 	})
@@ -397,7 +553,7 @@ func (o *Orchestrator) webOnlyPipeline() *engine.Pipeline {
 	p.AddStage(&engine.Stage{
 		Name:      "web_deep",
 		Phase:     engine.PhaseWeb,
-		Modules:   []string{"url_checks", "js_analysis", "param_discovery", "url_gf", "urlext", "service_fingerprint", "tls_ip_pivots", "virtual_hosts", "favirecon_tech", "nuclei_check", "graphql_scan", "iis_shortname", "jschecks", "broken_links", "wordlist_gen", "wordlist_gen_roboxtractor", "password_dict", "sub_js_extract", "wellknown_pivots", "grpc_reflection", "websocket_checks", "llm_probe"},
+		Modules:   []string{"url_checks", "js_analysis", "param_discovery", "url_gf", "urlext", "service_fingerprint", "tls_ip_pivots", "virtual_hosts", "favirecon_tech", "nuclei_check", "cms_scanner", "web_fuzz", "graphql_scan", "iis_shortname", "jschecks", "broken_links", "wordlist_gen", "wordlist_gen_roboxtractor", "password_dict", "sub_js_extract", "wellknown_pivots", "grpc_reflection", "websocket_checks", "llm_probe"},
 		Parallel:  false,
 		MaxJobs:   1,
 		DependsOn: []string{"web_analysis"},
@@ -406,9 +562,9 @@ func (o *Orchestrator) webOnlyPipeline() *engine.Pipeline {
 	p.AddStage(&engine.Stage{
 		Name:      "vuln",
 		Phase:     engine.PhaseVuln,
-		Modules:   []string{"nuclei", "xss_scan", "sqli_scan", "ssrf_scan", "ssl_audit"},
+		Modules:   []string{"nuclei", "xss_scan", "sqli_scan", "ssrf_scan", "ssl_audit", "bypass_4xx", "command_injection", "crlf_check", "fuzzparams", "http_smuggling", "lfi_check", "nuclei_dast", "spraying", "ssti_check", "webcache"},
 		Parallel:  true,
-		MaxJobs:   3,
+		MaxJobs:   4,
 		DependsOn: []string{"web_deep"},
 	})
 

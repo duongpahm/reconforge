@@ -17,7 +17,7 @@ import (
 // NSDelegation discovers subdomains via NS delegation zone transfer checks using dnsx.
 type NSDelegation struct{}
 
-func (m *NSDelegation) Name() string { return "sub_ns_delegation" }
+func (m *NSDelegation) Name() string { return "ns_delegation" }
 func (m *NSDelegation) Description() string {
 	return "NS delegation zone transfer subdomain discovery via dnsx"
 }
@@ -27,7 +27,7 @@ func (m *NSDelegation) RequiredTools() []string { return []string{"dnsx"} }
 
 func (m *NSDelegation) Validate(cfg *config.Config) error {
 	if !cfg.Subdomain.NSDelegation {
-		return fmt.Errorf("sub_ns_delegation disabled")
+		return fmt.Errorf("ns_delegation disabled")
 	}
 	return nil
 }
@@ -41,7 +41,7 @@ func (m *NSDelegation) Run(ctx context.Context, scan *module.ScanContext) error 
 
 	subsFile := filepath.Join(subsDir, "subdomains.txt")
 	if _, err := os.Stat(subsFile); os.IsNotExist(err) {
-		scan.Logger.Info().Msg("No subdomains.txt; sub_ns_delegation skipped")
+		scan.Logger.Info().Msg("No subdomains.txt; ns_delegation skipped")
 		return nil
 	}
 
@@ -122,9 +122,9 @@ func (m *NSDelegation) Run(ctx context.Context, scan *module.ScanContext) error 
 
 	if len(newSubs) > 0 {
 		added := scan.Results.AddSubdomains(newSubs)
-		scan.Logger.Info().Int("delegated_zones", len(delegatedZones)).Int("new_subs", added).Msg("sub_ns_delegation complete")
+		scan.Logger.Info().Int("delegated_zones", len(delegatedZones)).Int("new_subs", added).Msg("ns_delegation complete")
 	} else {
-		scan.Logger.Info().Int("delegated_zones", len(delegatedZones)).Msg("sub_ns_delegation complete (no new subs from AXFR)")
+		scan.Logger.Info().Int("delegated_zones", len(delegatedZones)).Msg("ns_delegation complete (no new subs from AXFR)")
 	}
 	return nil
 }

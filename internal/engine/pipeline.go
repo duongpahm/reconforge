@@ -15,7 +15,7 @@ import (
 type Phase int
 
 const (
-	PhaseOSINT     Phase = iota
+	PhaseOSINT Phase = iota
 	PhaseSubdomain
 	PhaseWeb
 	PhaseVuln
@@ -198,9 +198,9 @@ type PipelineExecutor struct {
 	results map[string]*StageResult
 
 	// Callbacks
-	OnStageStart    func(stage string)
-	OnStageComplete func(stage string, result *StageResult)
-	OnModuleStart   func(stage, module string)
+	OnStageStart     func(stage string)
+	OnStageComplete  func(stage string, result *StageResult)
+	OnModuleStart    func(stage, module string)
 	OnModuleComplete func(stage, module string, result *ModuleResult)
 }
 
@@ -414,73 +414,4 @@ func (pe *PipelineExecutor) executeModule(ctx context.Context, stageName, modNam
 	}
 
 	return mr
-}
-
-// DefaultPipeline creates the standard recon pipeline with all phases.
-func DefaultPipeline() *Pipeline {
-	p := NewPipeline()
-
-	p.AddStage(&Stage{
-		Name:     "osint",
-		Phase:    PhaseOSINT,
-		Modules:  []string{"google_dorks", "github_dorks", "github_leaks", "email_harvest", "cloud_enum", "dns_intel"},
-		Parallel: true,
-		MaxJobs:  4,
-	})
-
-	p.AddStage(&Stage{
-		Name:      "subdomain_passive",
-		Phase:     PhaseSubdomain,
-		Modules:   []string{"subfinder", "crt_sh", "github_subs"},
-		Parallel:  true,
-		MaxJobs:   3,
-		DependsOn: []string{"osint"},
-	})
-
-	p.AddStage(&Stage{
-		Name:      "subdomain_active",
-		Phase:     PhaseSubdomain,
-		Modules:   []string{"dns_brute", "permutations", "zone_transfer"},
-		Parallel:  true,
-		MaxJobs:   2,
-		DependsOn: []string{"subdomain_passive"},
-	})
-
-	p.AddStage(&Stage{
-		Name:      "subdomain_post",
-		Phase:     PhaseSubdomain,
-		Modules:   []string{"wildcard_filter", "takeover", "s3_buckets"},
-		Parallel:  true,
-		MaxJobs:   3,
-		DependsOn: []string{"subdomain_active"},
-	})
-
-	p.AddStage(&Stage{
-		Name:      "web_probe",
-		Phase:     PhaseWeb,
-		Modules:   []string{"httpx_probe", "screenshot", "portscan"},
-		Parallel:  true,
-		MaxJobs:   3,
-		DependsOn: []string{"subdomain_post"},
-	})
-
-	p.AddStage(&Stage{
-		Name:      "web_analysis",
-		Phase:     PhaseWeb,
-		Modules:   []string{"crawl", "js_analysis", "nuclei_scan", "fuzz", "waf_detect", "param_discovery"},
-		Parallel:  true,
-		MaxJobs:   4,
-		DependsOn: []string{"web_probe"},
-	})
-
-	p.AddStage(&Stage{
-		Name:      "vuln",
-		Phase:     PhaseVuln,
-		Modules:   []string{"xss", "ssrf", "sqli", "ssti", "lfi", "ssl_check", "smuggling", "nuclei_dast"},
-		Parallel:  true,
-		MaxJobs:   3,
-		DependsOn: []string{"web_analysis"},
-	})
-
-	return p
 }

@@ -9,17 +9,6 @@ general:
   deep: false
   verbose: false
 
-vm:
-  enabled: true
-  provider: virtualbox
-  name: kali-reconforge
-  memory: 4096
-  cpus: 2
-  disk_gb: 50
-  image: kali-rolling
-  ssh_port: 2222
-  shared_dir: /shared
-
 target:
   scope_file: ""
   out_of_scope_file: ""

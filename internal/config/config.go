@@ -20,7 +20,6 @@ var (
 // Config is the root configuration struct for ReconForge.
 type Config struct {
 	General     GeneralConfig     `mapstructure:"general"`
-	VM          VMConfig          `mapstructure:"vm"`
 	Target      TargetConfig      `mapstructure:"target"`
 	OSINT       OSINTConfig       `mapstructure:"osint"`
 	Subdomain   SubdomainConfig   `mapstructure:"subdomain"`
@@ -37,25 +36,17 @@ type Config struct {
 
 // GeneralConfig holds general settings.
 type GeneralConfig struct {
-	ToolsDir   string `mapstructure:"tools_dir"`
-	OutputDir  string `mapstructure:"output_dir"`
-	Parallel   bool   `mapstructure:"parallel"`
-	MaxWorkers int    `mapstructure:"max_workers"`
-	Deep       bool   `mapstructure:"deep"`
-	Verbose    bool   `mapstructure:"verbose"`
-}
-
-// VMConfig holds VM management settings.
-type VMConfig struct {
-	Enabled   bool   `mapstructure:"enabled"`
-	Provider  string `mapstructure:"provider"`
-	Name      string `mapstructure:"name"`
-	Memory    int    `mapstructure:"memory"`
-	CPUs      int    `mapstructure:"cpus"`
-	DiskGB    int    `mapstructure:"disk_gb"`
-	Image     string `mapstructure:"image"`
-	SSHPort   int    `mapstructure:"ssh_port"`
-	SharedDir string `mapstructure:"shared_dir"`
+	ToolsDir         string `mapstructure:"tools_dir"`
+	OutputDir        string `mapstructure:"output_dir"`
+	Parallel         bool   `mapstructure:"parallel"`
+	MaxWorkers       int    `mapstructure:"max_workers"`
+	CheckpointFreq   int    `mapstructure:"checkpoint_freq"`
+	MemoryLimitMB    int64  `mapstructure:"memory_limit_mb"`
+	Deep             bool   `mapstructure:"deep"`
+	Verbose          bool   `mapstructure:"verbose"`
+	DryRun           bool   `mapstructure:"dry_run"`
+	SkipMissingTools bool   `mapstructure:"skip_missing_tools"`
+	Prefix           string `mapstructure:"prefix"`
 }
 
 // TargetConfig holds target scoping settings.
@@ -242,29 +233,41 @@ func Load(cfgFile string, logger zerolog.Logger) (*Config, error) {
 
 	if cfgFile != "" {
 		v.SetConfigFile(cfgFile)
+		if err := v.ReadInConfig(); err != nil {
+			return nil, fmt.Errorf("error reading config: %w", err)
+		}
+		logger.Info().Str("config", v.ConfigFileUsed()).Msg("Config loaded")
 	} else {
-		// Search config in standard locations
-		v.SetConfigName("default")
-		v.SetConfigType("yaml")
-		v.AddConfigPath(".")
-		v.AddConfigPath("./configs")
-		v.AddConfigPath(filepath.Join(os.Getenv("HOME"), ".reconforge"))
+		loaded := false
+		for _, path := range defaultConfigPaths() {
+			if _, err := os.Stat(path); err != nil {
+				if os.IsNotExist(err) {
+					continue
+				}
+				return nil, fmt.Errorf("stat config %s: %w", path, err)
+			}
+			v.SetConfigFile(path)
+			if !loaded {
+				if err := v.ReadInConfig(); err != nil {
+					return nil, fmt.Errorf("error reading config: %w", err)
+				}
+				loaded = true
+			} else {
+				if err := v.MergeInConfig(); err != nil {
+					return nil, fmt.Errorf("error merging config %s: %w", path, err)
+				}
+			}
+			logger.Info().Str("config", path).Msg("Config loaded")
+		}
+		if !loaded {
+			logger.Warn().Msg("No config file found, using defaults")
+		}
 	}
 
 	// Environment variables override (RECONFORGE_GENERAL_MAXWORKERS, etc.)
 	v.SetEnvPrefix("RECONFORGE")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
-
-	if err := v.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			logger.Warn().Msg("No config file found, using defaults")
-		} else {
-			return nil, fmt.Errorf("error reading config: %w", err)
-		}
-	} else {
-		logger.Info().Str("config", v.ConfigFileUsed()).Msg("Config loaded")
-	}
 
 	var cfg Config
 	if err := v.Unmarshal(&cfg); err != nil {
@@ -282,6 +285,22 @@ func Load(cfgFile string, logger zerolog.Logger) (*Config, error) {
 	return &cfg, nil
 }
 
+func defaultConfigPaths() []string {
+	paths := []string{
+		filepath.Join("configs", "default.yaml"),
+		"default.yaml",
+	}
+
+	if home, err := os.UserHomeDir(); err == nil {
+		paths = append(paths,
+			filepath.Join(home, ".reconforge", "default.yaml"),
+			filepath.Join(home, ".reconforge", "config.yaml"),
+		)
+	}
+
+	return paths
+}
+
 // setDefaults applies sane default values.
 func setDefaults(v *viper.Viper) {
 	// General
@@ -289,19 +308,13 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("general.output_dir", "./Recon")
 	v.SetDefault("general.parallel", true)
 	v.SetDefault("general.max_workers", 4)
+	v.SetDefault("general.checkpoint_freq", 1)
+	v.SetDefault("general.memory_limit_mb", int64(0))
 	v.SetDefault("general.deep", false)
 	v.SetDefault("general.verbose", false)
-
-	// VM
-	v.SetDefault("vm.enabled", true)
-	v.SetDefault("vm.provider", "virtualbox")
-	v.SetDefault("vm.name", "kali-reconforge")
-	v.SetDefault("vm.memory", 4096)
-	v.SetDefault("vm.cpus", 2)
-	v.SetDefault("vm.disk_gb", 50)
-	v.SetDefault("vm.image", "kali-rolling")
-	v.SetDefault("vm.ssh_port", 2222)
-	v.SetDefault("vm.shared_dir", "/shared")
+	v.SetDefault("general.dry_run", false)
+	v.SetDefault("general.skip_missing_tools", false)
+	v.SetDefault("general.prefix", "")
 
 	// OSINT
 	v.SetDefault("osint.enabled", true)

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -23,13 +24,13 @@ const (
 
 // ScanState holds the state of a scan.
 type ScanState struct {
-	ID          string     `json:"id"`
-	Target      string     `json:"target"`
-	Mode        string     `json:"mode"`
-	Status      ScanStatus `json:"status"`
-	StartedAt   time.Time  `json:"started_at"`
-	CompletedAt *time.Time `json:"completed_at,omitempty"`
-	Findings    int        `json:"findings"`
+	ID          string        `json:"id"`
+	Target      string        `json:"target"`
+	Mode        string        `json:"mode"`
+	Status      ScanStatus    `json:"status"`
+	StartedAt   time.Time     `json:"started_at"`
+	CompletedAt *time.Time    `json:"completed_at,omitempty"`
+	Findings    int           `json:"findings"`
 	Modules     []ModuleState `json:"modules,omitempty"`
 }
 
@@ -46,6 +47,7 @@ type ModuleState struct {
 // StateManager manages scan state persistence via SQLite.
 type StateManager struct {
 	db *sql.DB
+	mu sync.Mutex
 }
 
 // NewStateManager creates a new state manager with the given SQLite database path.
@@ -56,6 +58,14 @@ func NewStateManager(dbPath string) (*StateManager, error) {
 	}
 
 	sm := &StateManager{db: db}
+	if _, err := db.Exec(`PRAGMA journal_mode=WAL`); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("enable wal: %w", err)
+	}
+	if _, err := db.Exec(`PRAGMA busy_timeout=5000`); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("set busy timeout: %w", err)
+	}
 	if err := sm.migrate(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migrate state db: %w", err)
@@ -107,6 +117,9 @@ func (sm *StateManager) migrate() error {
 
 // StartScan creates a new scan record.
 func (sm *StateManager) StartScan(target, mode string) (string, error) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
 	id := fmt.Sprintf("%s-%d", target, time.Now().UnixNano())
 	now := time.Now().UTC().Format("2006-01-02 15:04:05")
 
@@ -137,6 +150,9 @@ func parseTimeStr(s string) time.Time {
 
 // UpdateModule updates the state of a module within a scan.
 func (sm *StateManager) UpdateModule(scanID, module string, status ScanStatus, findings int, duration float64, errMsg string) error {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
 	_, err := sm.db.Exec(
 		`INSERT INTO modules (scan_id, name, status, findings, started_at, duration_secs, error)
 		 VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)
@@ -156,6 +172,9 @@ func (sm *StateManager) UpdateModule(scanID, module string, status ScanStatus, f
 
 // MarkComplete marks a scan as complete.
 func (sm *StateManager) MarkComplete(scanID string) error {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
 	now := time.Now().UTC().Format("2006-01-02 15:04:05")
 	// Sum all findings from modules
 	_, err := sm.db.Exec(
@@ -174,6 +193,9 @@ func (sm *StateManager) MarkComplete(scanID string) error {
 
 // MarkFailed marks a scan as failed.
 func (sm *StateManager) MarkFailed(scanID string) error {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
 	now := time.Now().UTC().Format("2006-01-02 15:04:05")
 	_, err := sm.db.Exec(
 		`UPDATE scans SET status = ?, completed_at = ? WHERE id = ?`,
@@ -258,6 +280,9 @@ func (sm *StateManager) GetLastScan(target string) (*ScanState, error) {
 
 // SaveCheckpoint saves checkpoint data for resuming a scan.
 func (sm *StateManager) SaveCheckpoint(scanID string, data interface{}) error {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("marshal checkpoint: %w", err)

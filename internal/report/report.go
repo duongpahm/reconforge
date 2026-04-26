@@ -246,7 +246,7 @@ const htmlTemplate = `<!DOCTYPE html>
 </head>
 <body>
 <div class="container">
-  <h1>🛡️ ReconForge Report</h1>
+  <h1>ReconForge Report</h1>
   <div class="meta">
     <strong>Target:</strong> {{.Target}} &nbsp;|&nbsp;
     <strong>Mode:</strong> {{.ScanMode}} &nbsp;|&nbsp;

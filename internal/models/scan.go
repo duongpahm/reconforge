@@ -1,45 +1,29 @@
 package models
 
-import (
-	"time"
-
-	"gorm.io/gorm"
-	"gorm.io/driver/sqlite"
-)
+import "time"
 
 // Target represents a domain or IP being scanned.
 type Target struct {
-	gorm.Model
-	Name        string `gorm:"uniqueIndex"`
+	ID          uint
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	Name        string
 	Description string
 	Scans       []Scan
 }
 
 // Scan represents a reconnaissance scan execution.
 type Scan struct {
-	gorm.Model
-	TargetID    uint
-	TargetName  string // Denormalized for fast query
-	Mode        string
-	Status      string // pending, running, completed, failed
-	Findings    int
-	Duration    time.Duration
-	WorkflowID  string `gorm:"index"`
-	RunID       string
-}
-
-// SetupDatabase initializes the SQLite connection and runs migrations.
-func SetupDatabase(dsn string) (*gorm.DB, error) {
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
-	if err != nil {
-		return nil, err
-	}
-
-	// Run auto migrations
-	err = db.AutoMigrate(&Target{}, &Scan{})
-	if err != nil {
-		return nil, err
-	}
-
-	return db, nil
+	ID         uint
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	TargetID   uint
+	Target     string
+	TargetName string
+	Mode       string
+	Status     string
+	Findings   int
+	Duration   time.Duration
+	WorkflowID string
+	RunID      string
 }

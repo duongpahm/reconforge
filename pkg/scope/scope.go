@@ -17,7 +17,13 @@ type Scope struct {
 }
 
 // NewScope creates a scope from in-scope and out-of-scope file paths.
+// If outOfScopeFile is empty, it attempts to parse inScopeFile as a unified .scope file
+// where lines starting with '!' are considered out-of-scope.
 func NewScope(inScopeFile, outOfScopeFile string) (*Scope, error) {
+	if inScopeFile != "" && outOfScopeFile == "" {
+		return ParseScopeFile(inScopeFile)
+	}
+
 	s := &Scope{}
 
 	if inScopeFile != "" {
@@ -34,6 +40,30 @@ func NewScope(inScopeFile, outOfScopeFile string) (*Scope, error) {
 			return nil, fmt.Errorf("read out-of-scope file: %w", err)
 		}
 		s.OutOfScope = entries
+	}
+
+	return s, nil
+}
+
+// ParseScopeFile parses a single .scope file containing both in-scope and out-of-scope items.
+// Lines starting with '!' are treated as out-of-scope.
+func ParseScopeFile(path string) (*Scope, error) {
+	lines, err := readLines(path)
+	if err != nil {
+		return nil, fmt.Errorf("parse scope file: %w", err)
+	}
+
+	s := &Scope{}
+	for _, line := range lines {
+		if strings.HasPrefix(line, "!") {
+			// Remove the '!' prefix and trim
+			exclusion := strings.TrimSpace(line[1:])
+			if exclusion != "" {
+				s.OutOfScope = append(s.OutOfScope, exclusion)
+			}
+		} else {
+			s.InScope = append(s.InScope, line)
+		}
 	}
 
 	return s, nil

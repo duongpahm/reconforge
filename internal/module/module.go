@@ -219,5 +219,9 @@ type Finding struct {
 	Type     string `json:"type"`     // subdomain, url, vuln, info
 	Severity string `json:"severity"` // info, low, medium, high, critical
 	Target   string `json:"target"`
+	Host     string `json:"host,omitempty"`
+	URL      string `json:"url,omitempty"`
 	Detail   string `json:"detail"`
+	RequestRaw  string `json:"request_raw,omitempty"`
+	ResponseRaw string `json:"response_raw,omitempty"`
 }

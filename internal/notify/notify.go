@@ -86,9 +86,9 @@ func (n *Notifier) Send(ctx context.Context, alert *Alert) {
 }
 
 func (n *Notifier) sendSlack(ctx context.Context, alert *Alert) {
-	emoji := "✅"
+	emoji := "[+]"
 	if alert.Status == "failed" {
-		emoji = "❌"
+		emoji = "[-]"
 	}
 
 	text := fmt.Sprintf(
@@ -134,9 +134,9 @@ func (n *Notifier) sendDiscord(ctx context.Context, alert *Alert) {
 }
 
 func (n *Notifier) sendTelegram(ctx context.Context, alert *Alert) {
-	emoji := "✅"
+	emoji := "[+]"
 	if alert.Status == "failed" {
-		emoji = "❌"
+		emoji = "[-]"
 	}
 
 	text := fmt.Sprintf(

@@ -4,6 +4,7 @@ package runner
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
@@ -20,7 +21,7 @@ type RunOpts struct {
 	Stdin      io.Reader
 	WorkDir    string
 	Env        []string
-	Remote     bool   // run on Kali VM via SSH
+	Remote     bool // run on Kali VM via SSH
 }
 
 // RunResult holds the output of a tool execution.
@@ -129,6 +130,10 @@ func (r *LocalRunner) execute(ctx context.Context, tool string, args []string, o
 	}
 
 	if err != nil {
+		var execErr *exec.Error
+		if errors.As(err, &execErr) && errors.Is(execErr.Err, exec.ErrNotFound) {
+			return nil, &MissingToolError{Tool: tool}
+		}
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			result.ExitCode = exitErr.ExitCode()
 		} else {

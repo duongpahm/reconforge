@@ -18,10 +18,8 @@ func TestLoad_Defaults(t *testing.T) {
 	cfg, err := Load("", nopLogger)
 	require.NoError(t, err)
 	assert.Equal(t, 4, cfg.General.MaxWorkers)
-	assert.Equal(t, "virtualbox", cfg.VM.Provider)
-	assert.Equal(t, "kali-reconforge", cfg.VM.Name)
-	assert.Equal(t, 50, cfg.VM.DiskGB)
-	assert.Equal(t, "kali-rolling", cfg.VM.Image)
+	assert.EqualValues(t, 1, cfg.General.CheckpointFreq)
+	assert.EqualValues(t, 0, cfg.General.MemoryLimitMB)
 	assert.Equal(t, "auto", cfg.DNS.Resolver)
 	assert.Equal(t, "all", cfg.Export.Format)
 	assert.Equal(t, "bughunter", cfg.AI.ReportProfile)
@@ -34,10 +32,11 @@ func TestLoad_FromFile(t *testing.T) {
 	yaml := `
 general:
   max_workers: 8
+  checkpoint_freq: 3
+  memory_limit_mb: 256
   verbose: true
-vm:
-  provider: qemu
-  memory: 8192
+target:
+  scope_file: ./test.scope
 `
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "test.yaml")
@@ -46,9 +45,10 @@ vm:
 	cfg, err := Load(cfgPath, nopLogger)
 	require.NoError(t, err)
 	assert.Equal(t, 8, cfg.General.MaxWorkers)
+	assert.EqualValues(t, 3, cfg.General.CheckpointFreq)
+	assert.EqualValues(t, 256, cfg.General.MemoryLimitMB)
 	assert.True(t, cfg.General.Verbose)
-	assert.Equal(t, "qemu", cfg.VM.Provider)
-	assert.Equal(t, 8192, cfg.VM.Memory)
+	assert.Equal(t, "./test.scope", cfg.Target.ScopeFile)
 }
 
 func TestLoad_InvalidFile(t *testing.T) {
@@ -69,12 +69,8 @@ func TestLoad_ValidationFails(t *testing.T) {
 	yaml := `
 general:
   max_workers: 200
+  checkpoint_freq: 0
   output_dir: ./Recon
-vm:
-  provider: virtualbox
-  memory: 4096
-  cpus: 2
-  ssh_port: 2222
 dns:
   resolver: auto
 ratelimit:
@@ -92,6 +88,7 @@ ai:
 	_, err := Load(cfgPath, nopLogger)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "config validation")
+	assert.Contains(t, err.Error(), "general.checkpoint_freq")
 }
 
 func TestExpandHome(t *testing.T) {
@@ -138,4 +135,51 @@ func TestLoadProfile_NotFound(t *testing.T) {
 	cfg := &Config{}
 	_, err := LoadProfile("nonexistent-profile", cfg, nopLogger)
 	assert.Error(t, err)
+}
+
+func TestLoad_MergesHomeConfigOverDefaults(t *testing.T) {
+	oldWd, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() {
+		_ = os.Chdir(oldWd)
+	}()
+
+	oldHome := os.Getenv("HOME")
+	defer func() {
+		_ = os.Setenv("HOME", oldHome)
+	}()
+
+	root := t.TempDir()
+	require.NoError(t, os.Chdir(root))
+
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "configs"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "configs", "default.yaml"), []byte(`
+general:
+  output_dir: ./RepoRecon
+  max_workers: 4
+dns:
+  resolver: auto
+ratelimit:
+  min_rate: 10
+  max_rate: 500
+export:
+  format: all
+ai:
+  report_profile: bughunter
+`), 0o644))
+
+	home := filepath.Join(root, "home")
+	require.NoError(t, os.MkdirAll(filepath.Join(home, ".reconforge"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(home, ".reconforge", "config.yaml"), []byte(`
+general:
+  output_dir: ./UserRecon
+  max_workers: 9
+`), 0o644))
+	require.NoError(t, os.Setenv("HOME", home))
+
+	cfg, err := Load("", nopLogger)
+	require.NoError(t, err)
+	assert.Equal(t, "./UserRecon", cfg.General.OutputDir)
+	assert.Equal(t, 9, cfg.General.MaxWorkers)
+	assert.Equal(t, "auto", cfg.DNS.Resolver)
 }

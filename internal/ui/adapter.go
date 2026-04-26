@@ -130,7 +130,7 @@ func RenderCompact(target string, completed, total, findings int, elapsed time.D
 	}
 
 	return fmt.Sprintf(
-		"\r⚡ %s | %d/%d modules (%d%%) | %d findings | %s",
+		"\r[*] %s | %d/%d modules (%d%%) | %d findings | %s",
 		target, completed, total, pct, findings, elapsed.Round(time.Second),
 	)
 }

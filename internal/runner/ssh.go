@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -16,12 +17,12 @@ import (
 
 // SSHRunner executes tools on a remote machine (Kali VM) via SSH.
 type SSHRunner struct {
-	host       string
-	port       int
-	user       string
-	keyPath    string
-	logger     zerolog.Logger
-	client     *ssh.Client
+	host    string
+	port    int
+	user    string
+	keyPath string
+	logger  zerolog.Logger
+	client  *ssh.Client
 }
 
 // SSHConfig configures SSH connection parameters.
@@ -64,7 +65,7 @@ func (r *SSHRunner) Connect(ctx context.Context) error {
 		Timeout:         10 * time.Second,
 	}
 
-	addr := fmt.Sprintf("%s:%d", r.host, r.port)
+	addr := sshAddress(r.host, r.port)
 	r.logger.Debug().Str("addr", addr).Str("user", r.user).Msg("Connecting via SSH")
 
 	client, err := ssh.Dial("tcp", addr, config)
@@ -277,7 +278,7 @@ func (r *SSHRunner) Download(ctx context.Context, remotePath, localPath string) 
 // WaitForSSH waits until the SSH server is available.
 func WaitForSSH(host string, port int, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
-	addr := fmt.Sprintf("%s:%d", host, port)
+	addr := sshAddress(host, port)
 
 	for time.Now().Before(deadline) {
 		conn, err := net.DialTimeout("tcp", addr, 2*time.Second)
@@ -289,6 +290,10 @@ func WaitForSSH(host string, port int, timeout time.Duration) error {
 	}
 
 	return fmt.Errorf("SSH at %s not available after %v", addr, timeout)
+}
+
+func sshAddress(host string, port int) string {
+	return net.JoinHostPort(host, strconv.Itoa(port))
 }
 
 // shellescape provides basic shell argument escaping.

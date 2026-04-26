@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -35,6 +36,9 @@ func TestLocalRunner_Run_NonexistentTool(t *testing.T) {
 	r := newTestRunner()
 	_, err := r.Run(context.Background(), "nonexistent_tool_xyz", nil, RunOpts{})
 	assert.Error(t, err)
+	var missing *MissingToolError
+	assert.True(t, errors.As(err, &missing))
+	assert.Equal(t, "nonexistent_tool_xyz", missing.Tool)
 }
 
 func TestLocalRunner_Run_NonZeroExit(t *testing.T) {
