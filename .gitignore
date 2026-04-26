@@ -42,3 +42,4 @@ secrets.yml
 *.db
 *.sqlite
 *.sqlite3
+.build/

@@ -3,8 +3,8 @@ version: 2
 before:
   hooks:
     - go mod tidy
-    - mkdir -p dist/man
-    - go run ./cmd/reconforge gen-manpages --out dist/man
+    - mkdir -p .build/man
+    - go run ./cmd/reconforge gen-manpages --out .build/man
 
 builds:
   - id: reconforge
@@ -33,7 +33,7 @@ archives:
       - CHANGELOG.md
       - CONTRIBUTING.md
       - ARCHITECTURE.md
-      - dist/man/*.1
+      - .build/man/*.1
 
 checksum:
   name_template: checksums.txt
