@@ -1,259 +1,239 @@
 # ReconForge
 
-> **All-in-One Offensive Reconnaissance Platform — rebuilt in Go.**
-> A complete Go port of [reconFTW](https://github.com/six2dez/reconftw) with a module-based architecture, type-safe config, concurrent pipeline execution, and a REST/TUI/CLI triple interface.
+> Framework reconnaissance terminal-first — Go port của [reconFTW](https://github.com/six2dez/reconftw).
+> Single binary. Single user. Single machine. Không server, không VM.
 
-[![Go Version](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go)](https://go.dev/)
+[![Go](https://img.shields.io/badge/Go-1.23+-00ADD8?logo=go)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Status](https://img.shields.io/badge/status-alpha-orange)]()
 
 ---
 
-## Why ReconForge?
-
-reconFTW is a best-in-class bash reconnaissance framework, but bash hits real ceilings: no type safety, no structured concurrency, no testing, no first-class API surface, brittle error handling. ReconForge keeps the tool ecosystem and methodology of reconFTW and wraps them in a proper engineered runtime:
-
-- **82 reconnaissance modules** organized into 4 phases (OSINT → Subdomain → Web → Vuln)
-- **DAG-based pipeline** with explicit dependencies and parallel execution
-- **Type-safe Viper config** with YAML profiles and runtime validation
-- **Concurrent runner** with rate limiting, adaptive throttling, and timeout control
-- **Three interfaces:** CLI (cobra), TUI (BubbleTea), REST API + WebSocket (gin)
-- **Temporal workflow support** for distributed long-running scans
-- **Structured logging** (zerolog) + queryable SQLite result store (GORM)
-- **Scan profiles:** `quick`, `full`, `passive`, `osint`, `web`, `recon`
-- **~20k LOC of Go**, 27 test files, 18/18 test packages passing
-
----
-
-## Quick Start
-
-### Prerequisites
-
-- **Go 1.25+**
-- **External recon tools** (installed via `reconforge tools install` or manually): `subfinder`, `httpx`, `nuclei`, `katana`, `dalfox`, `sqlmap`, `waymore`, `naabu`, `nmap`, `crlfuzz`, `TInjA`, `commix`, `nomore403`, `smugglex`, `ffuf`, `CMSeeK`, `VhostFinder`, `asnmap`, `dnsx`, `tlsx`, `gitdorks_go`, `whois`, `porch-pirate`, `spoofy`, `favirecon`, `brutespray`, `Web-Cache-Vulnerability-Scanner`, `toxicache`, `cdncheck`, `gqlspection`, `enumerepo`, `gitleaks`, `trufflehog`, `metagoofil`, `misconfig-mapper`, `subjs`, `mantra`, `roboxtractor`, `grpcurl`, `gotator`, `regulator`, `hakrevdns`, `analyticsrelationships`, `unfurl`, `anew`, `qsreplace`, `gf`, `shortscan`, `urlfinder`
-- **System packages:** `dig`, `curl`, `git`
-
-### Install
+## Cài đặt
 
 ```bash
+# Build từ source (cần Go 1.23+)
 git clone https://github.com/duongpahm/reconforge.git
-cd reconforge
-go mod download
-go build -o bin/reconforge ./cmd/reconforge
+cd reconforge/reconforge
+go build -ldflags="-s -w" -o reconforge ./cmd/reconforge
 ```
 
-### First scan
+## 60 giây đầu tiên
 
 ```bash
-# Quick scan on a domain
-./bin/reconforge scan -t example.com --profile quick
-
-# Full scan with deep mode
-./bin/reconforge scan -t example.com --profile full --deep
-
-# Headless (no TUI)
-./bin/reconforge scan -t example.com --profile full --no-tui --log-level info
+./reconforge init --yes              # Bootstrap config + DB
+./reconforge doctor                  # Check môi trường
+./reconforge tools install all       # Cài 9 tool external
+./reconforge scan -d example.com --dry-run    # Test pipeline
+./reconforge scan -d example.com --profile quick
+./reconforge findings list -t example.com --severity high,critical
 ```
 
-Output lands in `./output/example.com/` with this structure:
-
-```
-output/example.com/
-├── osint/              # WHOIS, emails, API leaks, spoof check...
-├── subdomains/         # Subdomain enumeration results
-├── hosts/              # IPs, ports, service fingerprints
-├── webs/               # HTTPX probes, screenshots, crawled URLs, favicons
-├── js/                 # JS analysis, secret extraction
-├── fuzzing/            # Directory/vhost fuzzing
-├── gf/                 # GF pattern-filtered URLs (xss.txt, sqli.txt, …)
-├── nuclei_output/      # Nuclei JSON per severity level
-├── vulns/              # Vulnerability findings by category
-├── cms/                # CMSeeK results
-└── report/             # Final JSON/HTML/PDF reports
-```
+Output lưu tại `./Recon/<target>/` gồm: raw output theo phase, `state.db` (SQLite), `report.{json,md,html}`.
 
 ---
 
-## CLI Overview
+## Tính năng
+
+- **82 module** chia 4 phase: OSINT → Subdomain → Web → Vuln
+- **DAG pipeline** với dependency tường minh + parallel execution
+- **TUI dashboard** auto-detect TTY, fallback ndjson khi pipe
+- **Pipe-friendly** native: `findings list | jq | httpx`
+- **Resume** sau crash từ checkpoint
+- **Proxy** universal cho mọi tool subprocess (Burp/ZAP)
+- **19 subcommand**: scan, findings, project, scope, schedule, monitor, notify, doctor, ...
+- **Stable exit codes** cho CI/CD
+- **Self-update** qua GitHub Releases (SHA256 verified)
+
+---
+
+## CLI Reference
 
 ```
-reconforge scan       Run reconnaissance scan on a target
-reconforge server     Start the REST API + Web Dashboard
-reconforge worker     Start a Temporal worker for distributed scans
-reconforge tools      Manage security tools
-  ├── check             Health check all required tools
-  └── install           Install missing tools
-reconforge config     Manage configuration
-  ├── show              Show current configuration
-  ├── validate          Validate configuration file
-  └── profiles          List available scan profiles
-reconforge report     Generate reports from scan results
-reconforge vm         Manage a Kali Linux VM (Tart/QEMU)
-  ├── setup / status / start / stop / ssh / destroy
-reconforge version    Print version information
+reconforge scan         Chạy scan
+reconforge findings     Query / triage / replay / export findings
+reconforge project      Quản lý multi-target engagement
+reconforge scope        Validate / sync scope (HackerOne/Bugcrowd)
+reconforge diff         So sánh 2 lần scan
+reconforge monitor      Continuous monitoring
+reconforge schedule     Cron-based scheduled scans
+reconforge notify       Notification rules (Discord/Slack/Telegram)
+reconforge report       Generate report (hackerone/bugcrowd/executive)
+reconforge tools        Install / list / path tool external
+reconforge doctor       Health check
+reconforge cache        Quản lý cache
+reconforge init         Bootstrap config + DB
+reconforge config       Show / validate / list profile
+reconforge tail         Follow scan progress realtime
+reconforge completion   Shell completion (bash/zsh/fish)
+reconforge self-update  Update từ GitHub Releases
+reconforge version      Print version
 ```
+
+### Scan flags
+
+| Flag | Mô tả |
+|------|-------|
+| `-d, --domain` | Target domain |
+| `-l, --list` | File chứa list target |
+| `--cidr` | Target CIDR |
+| `-m, --mode` | `recon` (default), `passive`, `osint`, `web` |
+| `-p, --profile` | `quick`, `stealth`, `full`, `deep` |
+| `--parallel N` | Scan nhiều target song song |
+| `--proxy URL` | HTTP(S) proxy cho mọi tool subprocess |
+| `--dry-run` | Simulate không exec tool thật |
+| `--skip-missing-tools` | Skip module thiếu tool |
+| `--resume` | Resume scan đã interrupt |
+| `--tail` | Follow progress realtime |
+| `--inscope` | Path tới `.scope` file |
 
 ---
 
 ## Module Coverage
 
-**82 modules registered**, matching and exceeding the original bash framework.
+**82 module** đăng ký:
 
-| Phase | Modules | Coverage |
-|-------|---------|----------|
-| **OSINT** | 15 | `email_harvest`, `google_dorks`, `github_dorks`, `github_leaks`, `github_repos`, `github_actions_audit`, `cloud_enum`, `spf_dmarc`, `domain_info`, `api_leaks`, `spoof_check`, `ip_info`, `third_parties`, `metadata`, `mail_hygiene` |
-| **Subdomain** | 22 | Passive (`subfinder`, `crtsh`, `github_subdomains`), Active (`dns_brute`, `permutation`, `resolver`, `recursive`), TLS/DNS (`tls_grab`, `zone_transfer`, `srv_enum`, `noerror`, `ns_delegation`), Discovery (`asn_enum`, `source_scraping`, `analytics`, `regex_permut`, `ia_permut`, `ptr_cidrs`, `geo_info`), Post-processing (`wildcard_filter`, `takeover`, `s3_buckets`) |
-| **Web** | 30 | Probing (`httpx_probe`, `screenshots`, `crawler`, `favirecon_tech`), Analysis (`js_analysis`, `sub_js_extract`, `js_checks`, `waf_detector`, `param_discovery`, `cdn_provider`, `service_fingerprint`), Scanning (`port_scan`, `virtual_hosts`, `web_fuzz`, `nuclei_check`, `cms_scanner`, `iis_shortname`, `tls_ip_pivots`, `well_known_pivots`), Crawling (`url_checks`, `url_gf`, `url_ext`, `broken_links`, `sub_js_extract`), Specialized (`graphql`, `grpc_reflection`, `websocket_checks`, `llm_probe`, `wordlist_gen`, `wordlist_gen_roboxtractor`, `password_dict`) |
-| **Vuln** | 15 | `nuclei`, `nuclei_dast`, `dalfox_xss`, `sqlmap`, `ssrf`, `ssl_audit`, `crlf`, `lfi`, `ssti`, `command_injection`, `bypass_4xx`, `http_smuggling`, `webcache`, `fuzzparams`, `spraying` |
+| Phase | Số module | Examples |
+|-------|-----------|----------|
+| OSINT | 15 | `email_harvest`, `google_dorks`, `github_leaks`, `cloud_enum`, `mail_hygiene`, ... |
+| Subdomain | 22 | `subfinder`, `crt_sh`, `dns_brute`, `permutations`, `takeover`, ... |
+| Web | 30 | `httpx_probe`, `screenshots`, `crawler`, `nuclei_check`, `web_fuzz`, `cms_scanner`, ... |
+| Vuln | 15 | `nuclei`, `xss_scan`, `sqli_scan`, `ssrf_scan`, `nuclei_dast`, `bypass_4xx`, `lfi_check`, ... |
 
-See [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) for architecture details and contribution guide.
-
----
-
-## Scan Profiles
-
-Profiles live in [`configs/profiles/`](configs/profiles/). Current profiles:
-
-| Profile | Use case | Modules enabled |
-|---------|----------|-----------------|
-| **quick** | Fast triage (<10 min on small targets) | passive subdomain enum + httpx probe + nuclei (medium+) |
-| **full** | Complete recon (hours) | All modules — OSINT, active subdomain, web, vuln, DAST |
-| **passive** | OPSEC-safe | OSINT + passive subdomain enum only, no active probing |
-| **osint** | OSINT only | Email harvest, github dorks, domain info, API leaks |
-| **web** | Post-subdomain web-focused | HTTPX + crawl + nuclei + DAST + fuzz |
-| **recon** | Full pipeline | Identical to `full` |
-
-Define your own profile by copying `configs/profiles/full.yaml` and disabling modules you don't need.
+Đầy đủ danh sách module trong [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+Test regression: `internal/orchestrator/registry_coverage_test.go` đảm bảo mọi module đăng ký phải có ≥ 1 stage trong pipeline.
 
 ---
 
-## REST API & Web Dashboard
+## Scan Modes
+
+| Mode | Pipeline |
+|------|----------|
+| `recon` | Full: OSINT → Subdomain (4 stage) → Web (3 stage) → Vuln |
+| `passive` | OSINT + passive subdomain |
+| `osint` | OSINT only |
+| `web` | Web + Vuln (assume subdomains đã có) |
+
+## Profiles
+
+YAML profile tại `configs/profiles/`. Tự định nghĩa bằng cách copy `full.yaml` và disable module không cần.
+
+| Profile | Use case |
+|---------|----------|
+| `quick` | Fast triage |
+| `full` | Complete recon |
+| `stealth` | OPSEC-safe |
+| `deep` | Deep mode + extra modules |
+
+---
+
+## Workflow Examples
+
+### Daily bug bounty hunt
 
 ```bash
-reconforge server --addr :8080
+reconforge project create acme --scope ./acme.scope
+reconforge project add-target acme acme.com app.acme.com api.acme.com
+reconforge schedule add acme --cron "0 2 * * *" --profile full
+
+# Sáng dậy
+reconforge project findings acme --since 24h --severity high,critical
 ```
 
-Endpoints:
-- `POST /api/scans` — start a scan
-- `GET /api/scans/:id` — get scan status
-- `GET /api/scans/:id/findings` — list findings
-- `GET /api/scans/:id/live` — WebSocket stream of real-time progress
-- `GET /api/modules` — list all registered modules
-- `GET /api/profiles` — list available profiles
+### Burp manual hunt
+
+```bash
+# Burp listen :8080
+reconforge scan -d target.com --profile web --proxy http://127.0.0.1:8080
+reconforge findings replay <id> --proxy http://127.0.0.1:8080
+```
+
+### Pipe to other tools
+
+```bash
+# Re-probe sub findings với httpx
+reconforge findings list -t acme --type subdomain --format plain | httpx -status-code
+
+# Severity counting
+reconforge findings list -t acme --format ndjson | \
+  jq -s 'group_by(.severity) | map({sev: .[0].severity, count: length})'
+```
+
+### CI/CD gate
+
+```bash
+reconforge scan -d acme.com --profile quick
+case $? in
+  0) echo "Clean" ;;
+  3) echo "Critical found" && exit 1 ;;
+  *) echo "Scan error" && exit 1 ;;
+esac
+```
+
+Đầy đủ recipe (13 workflow) trong [`docs/RECIPES.md`](docs/RECIPES.md).
 
 ---
 
-## Architecture
+## Exit Codes
 
-```
-cmd/reconforge/              # CLI entrypoint (cobra)
-internal/
-├── api/                     # REST API + WebSocket
-├── cache/                   # Resolver & wordlist caching
-├── config/                  # Viper-based typed config
-├── engine/                  # Pipeline DAG, phases, stages
-├── models/                  # GORM models (SQLite)
-├── module/
-│   ├── osint/               (15 modules)
-│   ├── subdomain/           (22 modules)
-│   ├── web/                 (30 modules)
-│   └── vuln/                (15 modules)
-├── notify/                  # Discord/Slack/Telegram
-├── orchestrator/            # Scan orchestration
-├── output/                  # JSON/YAML/Markdown writers
-├── ratelimit/               # Adaptive rate limiting
-├── report/                  # Report generation
-├── runner/                  # External tool executor
-├── temporal/                # Temporal workflows
-├── ui/                      # BubbleTea TUI
-└── vm/                      # Kali VM manager
-pkg/
-├── scope/                   # In-scope validation
-├── tool/                    # Tool wrappers + installer
-└── types/                   # Shared types (Domain, IP, URL, Finding)
-test/e2e/                    # End-to-end scan tests
-```
-
-### Module Interface
-
-Every module conforms to a single contract — no special cases:
-
-```go
-type Module interface {
-    Name() string
-    Description() string
-    Phase() engine.Phase
-    Dependencies() []string
-    RequiredTools() []string
-    Validate(cfg *config.Config) error
-    Run(ctx context.Context, scan *module.ScanContext) error
-}
-```
-
-Modules are registered once in `internal/module/<phase>/register.go` and the orchestrator handles scheduling, parallelization, dependency resolution, and result aggregation.
+| Code | Ý nghĩa |
+|------|---------|
+| 0 | OK |
+| 1 | Usage error |
+| 2 | Scan failed |
+| 3 | Critical/high finding detected |
+| 4 | Required tool missing |
+| 5 | Config invalid |
+| 6 | Scope invalid |
+| 130 | Interrupted (SIGINT) |
 
 ---
 
 ## Development
 
 ```bash
-# Build
-go build ./...
-
-# Run all tests
-go test ./...
-
-# Run with race detector
-go test -race ./...
-
-# Run a specific package
-go test ./internal/module/web/... -v
-
-# Format & vet
-gofmt -w .
-go vet ./...
+go build ./...                          # Build
+go test -race ./...                     # Test với race detector
+go test -cover ./...                    # Coverage
+gofmt -w . && go vet ./...              # Format + vet
 ```
 
-### Adding a new module
+### Thêm module mới
 
-1. Create `internal/module/<phase>/<name>.go` implementing the `Module` interface
-2. Register it in `internal/module/<phase>/register.go`
-3. Add config fields to `internal/config/config.go` if needed
-4. Update test counts in `<phase>_test.go` and `orchestrator_test.go`
-5. Run `go build ./... && go test ./...`
+1. Tạo `internal/module/<phase>/<name>.go` implement `Module` interface
+2. Đăng ký vào `internal/module/<phase>/register.go`
+3. **Wire vào pipeline** tại `internal/orchestrator/orchestrator.go`
+4. Thêm config field vào `internal/config/config.go` (nếu cần)
+5. `go build ./... && go test ./...`
 
-Full guide and templates in [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
+> ⚠️ Bỏ qua step 3 → `TestAllRegisteredModulesAreWired` sẽ fail. Chi tiết: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ---
 
-## Legal & Ethics
+## Tài liệu
 
-This tool is for **authorized security testing only** — pentests, bug bounty programs you have explicit scope for, CTF challenges, and defensive research on assets you own. Scanning targets without permission is illegal in most jurisdictions.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — Internal architecture, layer responsibilities, data flow
+- [`docs/RECIPES.md`](docs/RECIPES.md) — 13 workflow recipes
+- [`docs/PIPE_RECIPES.md`](docs/PIPE_RECIPES.md) — Pipe-friendly snippets
+- [`AUDIT_FIX_PLAN.md`](AUDIT_FIX_PLAN.md) — Audit fix plan (đã hoàn thành P0/P1/P2)
+- [`TERMINAL_OPTIMIZATION_PLAN.md`](TERMINAL_OPTIMIZATION_PLAN.md) — Roadmap
 
-ReconForge does not provide exploitation payloads beyond standard detection patterns already shipped in public tools (nuclei, dalfox, sqlmap, etc.). It is a reconnaissance and discovery platform.
+---
+
+## Legal
+
+Tool này **chỉ dùng cho authorized security testing**: pentest, bug bounty trong scope, CTF, defensive research trên asset bạn sở hữu. Scan target không có quyền là **bất hợp pháp** ở phần lớn quốc gia.
+
+ReconForge không cung cấp exploitation payload riêng — chỉ orchestrate detection patterns trong các tool công khai (nuclei, dalfox, sqlmap, ...). Đây là platform **reconnaissance + discovery**.
 
 ---
 
 ## Credits
 
-- **Original [reconFTW](https://github.com/six2dez/reconftw)** by [@six2dez](https://github.com/six2dez) — the methodology, tool selection, and years of recon tradecraft that made this port possible.
-- The authors of every upstream tool ReconForge orchestrates (ProjectDiscovery suite, dalfox, sqlmap, katana, TInjA, CMSeeK, …).
-- Built for and by the offensive security community.
-
----
+- [reconFTW](https://github.com/six2dez/reconftw) by [@six2dez](https://github.com/six2dez) — methodology + tool selection.
+- ProjectDiscovery suite, dalfox, sqlmap, katana, TInjA, CMSeeK và mọi upstream tool.
+- Cộng đồng offensive security.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
-
----
-
-## Roadmap
-
-- [ ] Real-tool E2E fixture tests (mock recorded tool output)
-- [ ] Scan diffing (compare two scans, emit deltas)
-- [ ] Continuous monitoring mode (cron-triggered rescans with alerting)
-- [ ] Distributed mode via Temporal + axiom-compatible backend
-- [ ] Web Dashboard (React SPA)
-- [ ] Plugin system for user-defined modules without recompile
-- [ ] Scope-aware reporting (severity aggregation per asset class)
+[MIT](LICENSE)
