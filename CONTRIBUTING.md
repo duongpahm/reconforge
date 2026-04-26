@@ -201,6 +201,10 @@ Release expectations:
 - `checksums.txt` has a detached signature
 - version metadata is embedded into binaries
 - generated man pages are packaged with the release archives
+- GitHub Actions release workflow expects these secrets:
+  - `RECONFORGE_GPG_PRIVATE_KEY`
+  - `RECONFORGE_GPG_PASSPHRASE`
+  - `RECONFORGE_GPG_FINGERPRINT`
 
 ## Documentation updates
 
